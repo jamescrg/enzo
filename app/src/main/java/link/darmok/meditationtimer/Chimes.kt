@@ -31,7 +31,8 @@ data class Chime(
 // Ordered highest pitch to lowest
 val CHIMES = listOf(
     Chime("wind", "Tingsha", R.raw.tingsha, maxVolume = 0.2f),
-    Chime("chime", "Chime", R.raw.chime),
+    // Recorded about 20 dB hotter than the bowls; scaled down to sit level with them.
+    Chime("chime", "Chime", R.raw.chime, maxVolume = 0.12f),
     Chime("bell", "Singing Bowl", R.raw.singing_bowl),
     Chime("gong", "Singing Bowl 2", R.raw.deep_gong),
     Chime("moktak", "Moktak", R.raw.moktak),
