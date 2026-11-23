@@ -322,7 +322,7 @@ fun TimerApp() {
                         // Three-digit minutes need a smaller size to stay inside the ring, and the
                         // painted ring is much thicker than the plain one.
                         fontSize = when {
-                            brushRing -> if (text.length > 5) 44.sp else 56.sp
+                            brushRing -> if (text.length > 5) 50.sp else 62.sp
                             text.length > 5 -> 58.sp
                             else -> 72.sp
                         },
