@@ -49,6 +49,10 @@ object TimerEngine {
     private val _keepScreenOn = MutableStateFlow(false)
     val keepScreenOn: StateFlow<Boolean> = _keepScreenOn
 
+    /** Hide the countdown along with the controls while running, leaving only the ring. */
+    private val _ringOnly = MutableStateFlow(false)
+    val ringOnly: StateFlow<Boolean> = _ringOnly
+
     private fun now() = SystemClock.elapsedRealtime()
 
     fun init(application: Application) {
@@ -120,6 +124,11 @@ object TimerEngine {
         save()
     }
 
+    fun setRingOnly(enabled: Boolean) {
+        _ringOnly.value = enabled
+        save()
+    }
+
     fun setKeepScreenOn(enabled: Boolean) {
         _keepScreenOn.value = enabled
         save()
@@ -149,6 +158,7 @@ object TimerEngine {
             .put("chimeVolume", _chimeVolume.value.toDouble())
             .put("doNotDisturb", _doNotDisturb.value)
             .put("keepScreenOn", _keepScreenOn.value)
+            .put("ringOnly", _ringOnly.value)
             .put("timers", JSONArray().put(
                 JSONObject().put("duration", t.durationSec).put("repeat", t.repeat).put("chime", t.chime)
             ))
@@ -161,6 +171,7 @@ object TimerEngine {
         _chimeVolume.value = json.optDouble("chimeVolume", 0.8).toFloat().coerceIn(0f, 1f)
         _doNotDisturb.value = json.optBoolean("doNotDisturb", false)
         _keepScreenOn.value = json.optBoolean("keepScreenOn", false)
+        _ringOnly.value = json.optBoolean("ringOnly", false)
 
         // Only one timer on Android; if several were saved, keep the first.
         val t = json.optJSONArray("timers")?.optJSONObject(0) ?: JSONObject()

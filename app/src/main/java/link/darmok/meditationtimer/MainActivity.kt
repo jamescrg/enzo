@@ -17,6 +17,8 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -162,6 +164,7 @@ fun TimerApp() {
     val timer by TimerEngine.timer.collectAsStateWithLifecycle()
     val dark by TimerEngine.darkTheme.collectAsStateWithLifecycle()
     val keepScreenOn by TimerEngine.keepScreenOn.collectAsStateWithLifecycle()
+    val ringOnly by TimerEngine.ringOnly.collectAsStateWithLifecycle()
     val p = if (dark) Dark else Light
 
     val activity = LocalContext.current as ComponentActivity
@@ -193,6 +196,24 @@ fun TimerApp() {
     var sheet by remember { mutableStateOf<Sheet?>(null) }
     val minutes = timer.durationSec / 60
 
+    // While running, the controls fade away a few seconds after the last touch, leaving the
+    // ring and countdown (or just the ring). Any touch brings them back.
+    var controlsVisible by remember { mutableStateOf(true) }
+    var touches by remember { mutableIntStateOf(0) }
+    LaunchedEffect(running, touches, sheet) {
+        controlsVisible = true
+        if (running && sheet == null) {
+            delay(4000)
+            controlsVisible = false
+        }
+    }
+    val controlsAlpha by animateFloatAsState(
+        if (controlsVisible) 1f else 0f, tween(if (controlsVisible) 250 else 1500), label = "controls",
+    )
+    val timeAlpha by animateFloatAsState(
+        if (ringOnly && !controlsVisible) 0f else 1f, tween(if (controlsVisible) 250 else 1500), label = "time",
+    )
+
     CompositionLocalProvider(LocalPalette provides p) {
         val scrollState = rememberScrollState()
         Box(
@@ -200,11 +221,24 @@ fun TimerApp() {
                 .fillMaxSize()
                 .background(p.bg)
                 // Swipe up anywhere to pull up settings. Watched on the way down to the children
-                // and never consumed, so buttons and the ring still get their taps.
+                // and normally not consumed, so buttons and the ring still get their taps.
                 .pointerInput(Unit) {
                     val threshold = 56.dp.toPx()
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        touches++
+                        if (!controlsVisible) {
+                            // Controls are faded out: this touch only brings them back. Swallow it
+                            // so it can't press a button the user couldn't see.
+                            controlsVisible = true
+                            down.consume()
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                event.changes.forEach { it.consume() }
+                                if (event.changes.none { it.pressed }) break
+                            }
+                            return@awaitEachGesture
+                        }
                         var opened = false
                         while (true) {
                             val change = awaitPointerEvent(PointerEventPass.Initial)
@@ -237,12 +271,14 @@ fun TimerApp() {
                 Box(
                     Modifier
                         .align(Alignment.End)
-                        .size(48.dp)
+                        .padding(top = 8.dp, end = 8.dp)
+                        .alpha(controlsAlpha)
+                        .size(64.dp) // generous touch target around a small ring
                         .clip(CircleShape)
                         .clickable(role = Role.Button, onClickLabel = "Settings") { sheet = Sheet.SETTINGS },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Box(Modifier.size(22.dp).alpha(0.8f).border(2.5.dp, p.fg, CircleShape))
+                    Box(Modifier.size(24.dp).alpha(0.8f).border(2.5.dp, p.fg, CircleShape))
                 }
 
                 val remainingMs = timer.remainingAt(now)
@@ -255,6 +291,7 @@ fun TimerApp() {
                     val text = formatTime(remainingMs)
                     Text(
                         text,
+                        Modifier.alpha(timeAlpha),
                         color = p.fg,
                         // Three-digit minutes need a smaller size to stay inside the ring.
                         fontSize = if (text.length > 5) 58.sp else 72.sp,
@@ -263,7 +300,7 @@ fun TimerApp() {
                     )
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(Modifier.alpha(controlsAlpha), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Column(
                         Modifier.fillMaxWidth().background(p.bgDim, CardShape).padding(8.dp),
                     ) {
@@ -349,6 +386,7 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
     val dark by TimerEngine.darkTheme.collectAsStateWithLifecycle()
     val doNotDisturb by TimerEngine.doNotDisturb.collectAsStateWithLifecycle()
     val keepScreenOn by TimerEngine.keepScreenOn.collectAsStateWithLifecycle()
+    val ringOnly by TimerEngine.ringOnly.collectAsStateWithLifecycle()
 
     // Re-checked on every return to the app, since access is granted in system settings.
     var dndAccess by remember { mutableStateOf(QuietMode.hasAccess(context)) }
@@ -481,6 +519,11 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                             "Keep screen on", keepScreenOn,
                             caption = "Stay lit while the timer runs",
                             onChange = TimerEngine::setKeepScreenOn,
+                        )
+                        SwitchRow(
+                            "Ring only", ringOnly,
+                            caption = "Hide the countdown too when the controls fade",
+                            onChange = TimerEngine::setRingOnly,
                         )
                         SwitchRow("Dark theme", dark, onChange = { TimerEngine.toggleTheme() })
                     }
