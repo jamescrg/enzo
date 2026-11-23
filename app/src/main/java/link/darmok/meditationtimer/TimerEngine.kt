@@ -53,8 +53,8 @@ object TimerEngine {
     private val _ringOnly = MutableStateFlow(false)
     val ringOnly: StateFlow<Boolean> = _ringOnly
 
-    /** Show progress as a painted ensō instead of the plain ring. */
-    private val _brushRing = MutableStateFlow(false)
+    /** Show progress as a painted ensō (the default) instead of the plain ring. */
+    private val _brushRing = MutableStateFlow(true)
     val brushRing: StateFlow<Boolean> = _brushRing
 
     private fun now() = SystemClock.elapsedRealtime()
@@ -84,8 +84,13 @@ object TimerEngine {
         _timer.value = _timer.value.reset()
     }
 
+    /**
+     * Sets a new session length. Allowed when idle, and when paused, where it abandons the
+     * paused session and starts over at the new length. Ignored while running.
+     */
     fun setDuration(seconds: Int) {
         if (seconds == _timer.value.durationSec) return
+        if (_timer.value.status == Status.PAUSED) reset()
         _timer.value = _timer.value.withDuration(seconds)
         save()
     }
@@ -182,7 +187,7 @@ object TimerEngine {
         _doNotDisturb.value = json.optBoolean("doNotDisturb", false)
         _keepScreenOn.value = json.optBoolean("keepScreenOn", false)
         _ringOnly.value = json.optBoolean("ringOnly", false)
-        _brushRing.value = json.optBoolean("brushRing", false)
+        _brushRing.value = json.optBoolean("brushRing", true)
 
         // Only one timer on Android; if several were saved, keep the first.
         val t = json.optJSONArray("timers")?.optJSONObject(0) ?: JSONObject()

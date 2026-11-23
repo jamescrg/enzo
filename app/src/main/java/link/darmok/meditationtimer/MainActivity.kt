@@ -92,6 +92,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -292,7 +295,7 @@ fun TimerApp() {
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // Settings: tap this small ring (it echoes the timer), or swipe up anywhere.
+                // Settings: tap the gear, or swipe up anywhere.
                 Box(
                     Modifier
                         .align(Alignment.End)
@@ -303,7 +306,10 @@ fun TimerApp() {
                         .clickable(role = Role.Button, onClickLabel = "Settings") { sheet = Sheet.SETTINGS },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Box(Modifier.size(24.dp).alpha(0.8f).border(2.5.dp, p.fg, CircleShape))
+                    Icon(
+                        painterResource(R.drawable.ic_settings), contentDescription = null,
+                        modifier = Modifier.size(28.dp).alpha(0.8f), tint = p.fg,
+                    )
                 }
 
                 val remainingMs = timer.remainingAt(now)
@@ -311,8 +317,10 @@ fun TimerApp() {
                     fraction = 1f - remainingMs / (timer.durationSec * 1000f),
                     brush = brushRing,
                     modifier = Modifier.padding(vertical = 24.dp).fillMaxWidth(0.8f).widthIn(max = 320.dp),
-                    // Tap the time to change it. Locked once the timer has been started, as on desktop.
-                    onClick = if (idle) ({ sheet = Sheet.DURATION }) else null,
+                    // Tap the ring: pauses a running timer; otherwise opens the duration drawer
+                    // (when paused, choosing a new duration starts the session over).
+                    onClickLabel = if (running) "Pause" else "Set duration",
+                    onClick = { if (running) TimerEngine.pause() else sheet = Sheet.DURATION },
                 ) {
                     val text = formatTime(remainingMs)
                     Text(
@@ -363,6 +371,8 @@ fun TimerApp() {
         when (sheet) {
             Sheet.DURATION -> DurationSheet(
                 initialMinutes = minutes,
+                // Fixed when the sheet opens: the first change resets the timer to idle.
+                restartsSession = remember { timer.status == Status.PAUSED },
                 onChange = { TimerEngine.setDuration(it * 60) },
                 onDismiss = { sheet = null },
             )
@@ -378,6 +388,7 @@ private fun CountdownRing(
     fraction: Float,
     modifier: Modifier = Modifier,
     brush: Boolean = false,
+    onClickLabel: String? = null,
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
@@ -405,7 +416,7 @@ private fun CountdownRing(
                 }
             }
             .clip(CircleShape)
-            .clickable(enabled = onClick != null, role = Role.Button, onClickLabel = "Set duration") { onClick?.invoke() },
+            .clickable(enabled = onClick != null, role = Role.Button, onClickLabel = onClickLabel) { onClick?.invoke() },
         contentAlignment = Alignment.Center,
     ) { content() }
 }
@@ -497,12 +508,15 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                 }
             }
 
-            // Same height for every tab (sized for the chime list) so the sheet doesn't jump.
-            Column(
-                Modifier.padding(top = 12.dp).heightIn(min = 400.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                when (tab) {
+            // Every tab is measured and the drawer takes the height of the tallest, so it never
+            // changes size when switching. Only the selected tab is placed, so the others are
+            // neither drawn nor touchable.
+            Layout(
+                modifier = Modifier.padding(top = 12.dp),
+                content = {
+                    SettingsTab.entries.forEach { t ->
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                when (t) {
                     // Tapping a chime selects it and plays it, like a ringtone picker.
                     SettingsTab.CHIME -> CHIMES.forEachIndexed { i, chime ->
                         // Thin rule between the sounds and the silent vibrate options.
@@ -566,6 +580,14 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                         SwitchRow("Brushstroke ring", brushRing, onChange = TimerEngine::setBrushRing)
                         SwitchRow("Dark theme", dark, onChange = { TimerEngine.toggleTheme() })
                     }
+                }
+            }
+                    }
+                },
+            ) { measurables, constraints ->
+                val placeables = measurables.map { it.measure(constraints.copy(minHeight = 0)) }
+                layout(constraints.maxWidth, placeables.maxOf { it.height }) {
+                    placeables[tab.ordinal].place(0, 0)
                 }
             }
         }
@@ -689,7 +711,12 @@ private val ConsumeLeftoverScroll = object : NestedScrollConnection {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DurationSheet(initialMinutes: Int, onChange: (Int) -> Unit, onDismiss: () -> Unit) {
+private fun DurationSheet(
+    initialMinutes: Int,
+    restartsSession: Boolean,
+    onChange: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val p = LocalPalette.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -718,10 +745,15 @@ private fun DurationSheet(initialMinutes: Int, onChange: (Int) -> Unit, onDismis
             Modifier.padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                "Duration", Modifier.padding(start = 16.dp),
-                color = p.fg, fontSize = 20.sp, fontWeight = FontWeight.Bold,
-            )
+            Column(Modifier.padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Duration", color = p.fg, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                if (restartsSession) {
+                    Text(
+                        "Changing the duration restarts the session",
+                        Modifier.alpha(0.7f), color = p.fg, fontSize = 14.sp,
+                    )
+                }
+            }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DURATION_PRESETS_MIN.forEach { preset ->
