@@ -2,16 +2,14 @@ package link.darmok.meditationtimer
 
 enum class Status { IDLE, RUNNING, PAUSED }
 
-const val MAX_TIMERS = 4
 const val MAX_CUSTOM_MINUTES = 180
 val DURATION_PRESETS_MIN = listOf(5, 10, 15, 20, 25, 30)
 
 /**
- * One timer. Times are in the android.os.SystemClock.elapsedRealtime() timebase, so a running
+ * The timer. Times are in the android.os.SystemClock.elapsedRealtime() timebase, so a running
  * timer is defined by its deadline rather than by a counter that has to be decremented.
  */
 data class TimerState(
-    val id: Int,
     val durationSec: Int = 25 * 60,
     val repeat: Boolean = false,
     val chime: String = DEFAULT_CHIME,

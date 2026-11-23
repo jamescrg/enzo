@@ -5,7 +5,7 @@ import org.junit.Assert.assertSame
 import org.junit.Test
 
 class TimerStateTest {
-    private val fiveMin = TimerState(id = 0, durationSec = 300)
+    private val fiveMin = TimerState(durationSec = 300)
 
     @Test
     fun countsDownFromDeadline() {

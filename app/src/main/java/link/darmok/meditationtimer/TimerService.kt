@@ -18,8 +18,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
- * Foreground service that exists while any timer is running or paused, so Android doesn't kill
- * the process and lose the timers. Holds a CPU wake lock only while something is counting down,
+ * Foreground service that exists while the timer is running or paused, so Android doesn't kill
+ * the process and lose it. Holds a CPU wake lock only while the timer is counting down,
  * so the chime fires on time with the screen off.
  */
 class TimerService : Service() {
@@ -34,7 +34,7 @@ class TimerService : Service() {
         super.onCreate()
         notifications = getSystemService(NotificationManager::class.java)
         notifications.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Running timers", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(CHANNEL, "Running timer", NotificationManager.IMPORTANCE_LOW)
         )
         wakeLock = getSystemService(PowerManager::class.java)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MeditationTimer:countdown")
@@ -43,50 +43,45 @@ class TimerService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         ServiceCompat.startForeground(
-            this, NOTIFICATION_ID, buildNotification(TimerEngine.timers.value),
+            this, NOTIFICATION_ID, buildNotification(TimerEngine.timer.value),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
         )
-        if (watcher == null) watcher = scope.launch { TimerEngine.timers.collect(::onTimersChanged) }
+        if (watcher == null) watcher = scope.launch { TimerEngine.timer.collect(::onTimerChanged) }
         return START_NOT_STICKY
     }
 
-    private fun onTimersChanged(timers: List<TimerState>) {
-        if (timers.all { it.status == Status.IDLE }) {
+    private fun onTimerChanged(timer: TimerState) {
+        if (timer.status == Status.IDLE) {
             stopSelf()
             return
         }
-        if (timers.any { it.status == Status.RUNNING }) {
-            @Suppress("WakelockTimeout") // held exactly as long as a timer is counting down
+        if (timer.status == Status.RUNNING) {
+            @Suppress("WakelockTimeout") // held exactly as long as the timer is counting down
             wakeLock.acquire()
         } else if (wakeLock.isHeld) {
             wakeLock.release()
         }
-        notifications.notify(NOTIFICATION_ID, buildNotification(timers))
+        notifications.notify(NOTIFICATION_ID, buildNotification(timer))
     }
 
-    private fun buildNotification(timers: List<TimerState>): Notification {
-        val running = timers.filter { it.status == Status.RUNNING }
-        val text = when (running.size) {
-            0 -> "Paused"
-            1 -> "1 timer running"
-            else -> "${running.size} timers running"
-        }
+    private fun buildNotification(timer: TimerState): Notification {
+        val running = timer.status == Status.RUNNING
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
         )
         val builder = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_timer)
             .setContentTitle(getString(R.string.app_name))
-            .setContentText(text)
+            .setContentText(if (running) "Timer running" else "Timer paused")
             .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
 
-        // Live countdown to the next chime.
-        running.minOfOrNull { it.endAt }?.let { nextEnd ->
+        // Live countdown to the chime.
+        if (running) {
             builder
-                .setWhen(System.currentTimeMillis() + (nextEnd - SystemClock.elapsedRealtime()))
+                .setWhen(System.currentTimeMillis() + (timer.endAt - SystemClock.elapsedRealtime()))
                 .setShowWhen(true)
                 .setUsesChronometer(true)
                 .setChronometerCountDown(true)

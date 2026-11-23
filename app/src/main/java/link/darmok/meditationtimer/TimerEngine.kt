@@ -22,19 +22,18 @@ class App : Application() {
 }
 
 /**
- * Process-wide timer state. Lives outside the Activity so timers keep running (kept alive by
- * [TimerService]) when the UI is gone. Main-thread only.
+ * Process-wide timer state. Lives outside the Activity so the timer keeps running (kept alive
+ * by [TimerService]) when the UI is gone. Main-thread only.
  */
 object TimerEngine {
     private const val TICK_MS = 200L
 
     private val scope = MainScope()
     private lateinit var app: Application
-    private var nextId = 0
     private var ticker: Job? = null
 
-    private val _timers = MutableStateFlow<List<TimerState>>(emptyList())
-    val timers: StateFlow<List<TimerState>> = _timers
+    private val _timer = MutableStateFlow(TimerState())
+    val timer: StateFlow<TimerState> = _timer
 
     private val _darkTheme = MutableStateFlow(true)
     val darkTheme: StateFlow<Boolean> = _darkTheme
@@ -49,59 +48,47 @@ object TimerEngine {
         load()
     }
 
-    // ── Timer list ────────────────────────────────────────────────
+    // ── Timer controls ────────────────────────────────────────────
 
-    fun addTimer() {
-        if (_timers.value.size >= MAX_TIMERS) return
-        _timers.value += TimerState(id = nextId++)
-        save()
-    }
-
-    fun removeTimer(id: Int) {
-        if (_timers.value.size <= 1) return
-        _timers.value = _timers.value.filterNot { it.id == id }
-        save()
-    }
-
-    private inline fun update(id: Int, transform: (TimerState) -> TimerState) {
-        _timers.value = _timers.value.map { if (it.id == id) transform(it) else it }
-    }
-
-    // ── Per-timer controls ────────────────────────────────────────
-
-    fun start(id: Int) {
-        update(id) { it.started(now()) }
+    fun start() {
+        _timer.value = _timer.value.started(now())
         ContextCompat.startForegroundService(app, Intent(app, TimerService::class.java))
         if (ticker?.isActive != true) ticker = scope.launch { runTicker() }
     }
 
-    fun pause(id: Int) = update(id) { it.paused(now()) }
+    fun pause() {
+        _timer.value = _timer.value.paused(now())
+    }
 
-    fun reset(id: Int) = update(id) { it.reset() }
+    fun reset() {
+        _timer.value = _timer.value.reset()
+    }
 
-    fun setDuration(id: Int, seconds: Int) {
-        update(id) { it.withDuration(seconds) }
+    fun setDuration(seconds: Int) {
+        if (seconds == _timer.value.durationSec) return
+        _timer.value = _timer.value.withDuration(seconds)
         save()
     }
 
-    fun setChime(id: Int, chime: String) {
-        update(id) { it.copy(chime = chime) }
+    fun setChime(chime: String) {
+        _timer.value = _timer.value.copy(chime = chime)
         save()
     }
 
-    fun setRepeat(id: Int, repeat: Boolean) {
-        update(id) { it.copy(repeat = repeat) }
+    fun setRepeat(repeat: Boolean) {
+        _timer.value = _timer.value.copy(repeat = repeat)
         save()
     }
 
     private suspend fun runTicker() {
-        while (_timers.value.any { it.status == Status.RUNNING }) {
-            val now = now()
-            val before = _timers.value
-            val after = before.map { it.advanced(now) }
-            _timers.value = after
+        while (_timer.value.status == Status.RUNNING) {
+            val before = _timer.value
+            val after = before.advanced(now())
             // advanced() returns the same instance unless the timer just completed.
-            before.zip(after).forEach { (b, a) -> if (a !== b) playChime(b.chime) }
+            if (after !== before) {
+                _timer.value = after
+                playChime(before.chime)
+            }
             delay(TICK_MS)
         }
     }
@@ -110,7 +97,11 @@ object TimerEngine {
 
     fun playChime(chime: String) = ChimePlayer.play(app, chime, _chimeVolume.value)
 
-    fun testChime() = playChime(_timers.value.firstOrNull()?.chime ?: DEFAULT_CHIME)
+    /** Preview the selected chime, cutting off any earlier one so previews don't pile up. */
+    fun testChime() {
+        ChimePlayer.stopAll()
+        playChime(_timer.value.chime)
+    }
 
     fun toggleTheme() {
         _darkTheme.value = !_darkTheme.value
@@ -127,13 +118,14 @@ object TimerEngine {
     private val prefs get() = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
     fun save() {
+        val t = _timer.value
         val json = JSONObject()
             .put("version", 3)
             .put("theme", if (_darkTheme.value) "dark" else "light")
             .put("chimeVolume", _chimeVolume.value.toDouble())
-            .put("timers", JSONArray(_timers.value.map {
-                JSONObject().put("duration", it.durationSec).put("repeat", it.repeat).put("chime", it.chime)
-            }))
+            .put("timers", JSONArray().put(
+                JSONObject().put("duration", t.durationSec).put("repeat", t.repeat).put("chime", t.chime)
+            ))
         prefs.edit().putString("json", json.toString()).apply()
     }
 
@@ -142,16 +134,12 @@ object TimerEngine {
         _darkTheme.value = json.optString("theme", "dark") != "light"
         _chimeVolume.value = json.optDouble("chimeVolume", 0.8).toFloat().coerceIn(0f, 1f)
 
-        val saved = json.optJSONArray("timers") ?: JSONArray()
-        val loaded = (0 until minOf(saved.length(), MAX_TIMERS)).mapNotNull { i ->
-            val t = saved.optJSONObject(i) ?: return@mapNotNull null
-            TimerState(
-                id = nextId++,
-                durationSec = t.optInt("duration", 25 * 60).coerceIn(60, MAX_CUSTOM_MINUTES * 60),
-                repeat = t.optBoolean("repeat", false),
-                chime = chimeById(t.optString("chime")).id,
-            )
-        }
-        _timers.value = loaded.ifEmpty { listOf(TimerState(id = nextId++)) }
+        // Only one timer on Android; if several were saved, keep the first.
+        val t = json.optJSONArray("timers")?.optJSONObject(0) ?: JSONObject()
+        _timer.value = TimerState(
+            durationSec = t.optInt("duration", 25 * 60).coerceIn(60, MAX_CUSTOM_MINUTES * 60),
+            repeat = t.optBoolean("repeat", false),
+            chime = chimeById(t.optString("chime")).id,
+        )
     }
 }

@@ -1,10 +1,10 @@
 # Meditation Timer (Android)
 
-Android port of the desktop [Meditation Timer](../Meditation%20Timer): up to 4 simultaneous
-timers, duration presets or custom (1–180 min), five chime sounds, per-timer chime and repeat,
-system and chime volume, Everforest dark / Seoul256 light themes, persistent settings.
+Android port of the desktop [Meditation Timer](../Meditation%20Timer): a single timer with
+duration presets or custom (1–180 min), five chime sounds, repeat, system and chime volume,
+Everforest dark / Seoul256 light themes, persistent settings.
 
-Running timers are kept alive by a foreground service, so they chime with the screen off.
+A running timer is kept alive by a foreground service, so it chimes with the screen off.
 
 ## Build and install
 

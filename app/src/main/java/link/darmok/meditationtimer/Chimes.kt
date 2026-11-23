@@ -46,4 +46,9 @@ object ChimePlayer {
         player.setVolume(v, v)
         player.start()
     }
+
+    fun stopAll() {
+        playing.forEach { it.release() }
+        playing.clear()
+    }
 }
