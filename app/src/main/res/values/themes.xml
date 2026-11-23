@@ -1,0 +1,6 @@
+<resources>
+    <color name="launcher_bg">#2D353B</color>
+    <style name="Theme.MeditationTimer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/launcher_bg</item>
+    </style>
+</resources>
