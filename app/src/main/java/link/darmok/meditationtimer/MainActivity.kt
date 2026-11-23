@@ -641,6 +641,28 @@ private fun DurationSheet(initialMinutes: Int, onChange: (Int) -> Unit, onDismis
                 color = p.fg, fontSize = 20.sp, fontWeight = FontWeight.Bold,
             )
 
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DURATION_PRESETS_MIN.forEach { preset ->
+                    val selected = preset == centred + 1
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .clip(ControlShape)
+                            .background(if (selected) p.accent else p.btnBg)
+                            .clickable(role = Role.Button, onClickLabel = "$preset minutes") {
+                                scope.launch { listState.animateScrollToItem(preset - 1) }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "$preset", color = if (selected) p.bgDim else p.fg,
+                            fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+
             Box(Modifier.fillMaxWidth().height(WheelItemHeight * 5), contentAlignment = Alignment.Center) {
                 // Selection band
                 Box(Modifier.fillMaxWidth().height(WheelItemHeight).background(p.btnBg, ControlShape))
@@ -675,28 +697,6 @@ private fun DurationSheet(initialMinutes: Int, onChange: (Int) -> Unit, onDismis
                     "min", Modifier.offset(x = 72.dp).alpha(0.7f),
                     color = p.fg, fontSize = 18.sp,
                 )
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DURATION_PRESETS_MIN.forEach { preset ->
-                    val selected = preset == centred + 1
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .clip(ControlShape)
-                            .background(if (selected) p.accent else p.btnBg)
-                            .clickable(role = Role.Button, onClickLabel = "$preset minutes") {
-                                scope.launch { listState.animateScrollToItem(preset - 1) }
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            "$preset", color = if (selected) p.bgDim else p.fg,
-                            fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
             }
 
             AppButton(

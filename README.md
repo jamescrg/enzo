@@ -1,6 +1,6 @@
-# Meditation Timer (Android)
+# Enzo (Android)
 
-Android port of the desktop [Meditation Timer](../Meditation%20Timer): a single timer with
+A meditation timer: Android port of the desktop [Meditation Timer](../Meditation%20Timer): a single timer with
 duration presets or custom (1–180 min), five chime sounds or vibrate-only, repeat, system and chime volume,
 Everforest dark / Seoul256 light themes, persistent settings.
 

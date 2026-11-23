@@ -30,6 +30,7 @@ val CHIMES = listOf(
     Chime("bell", "Singing Bowl", R.raw.singing_bowl),
     Chime("gong", "Singing Bowl 2", R.raw.deep_gong),
     Chime("moktak", "Moktak", R.raw.moktak),
+    Chime("moktak_short", "Moktak (short)", R.raw.moktak_short),
     Chime("vibrate", "Vibrate", res = null, vibration = listOf(0, 500, 250, 500)),
     Chime("vibrate_long", "Long vibrate", res = null, vibration = listOf(0, 4500)),
 )
