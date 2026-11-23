@@ -41,11 +41,21 @@ object TimerEngine {
     private val _chimeVolume = MutableStateFlow(0.8f)
     val chimeVolume: StateFlow<Float> = _chimeVolume
 
+    /** Silence calls and notifications while the timer runs. */
+    private val _doNotDisturb = MutableStateFlow(false)
+    val doNotDisturb: StateFlow<Boolean> = _doNotDisturb
+
+    /** Keep the display awake while the timer runs. */
+    private val _keepScreenOn = MutableStateFlow(false)
+    val keepScreenOn: StateFlow<Boolean> = _keepScreenOn
+
     private fun now() = SystemClock.elapsedRealtime()
 
     fun init(application: Application) {
         app = application
         load()
+        // Nothing is running at process start, so undo Do Not Disturb left on by a killed session.
+        QuietMode.end(app)
     }
 
     // ── Timer controls ────────────────────────────────────────────
@@ -108,6 +118,18 @@ object TimerEngine {
         save()
     }
 
+    fun setKeepScreenOn(enabled: Boolean) {
+        _keepScreenOn.value = enabled
+        save()
+    }
+
+    fun setDoNotDisturb(enabled: Boolean) {
+        _doNotDisturb.value = enabled
+        save()
+        // Apply straight away if a session is already under way.
+        if (enabled && _timer.value.status == Status.RUNNING) QuietMode.begin(app) else if (!enabled) QuietMode.end(app)
+    }
+
     /** Call [save] when the user finishes adjusting. */
     fun setChimeVolume(volume: Float) {
         _chimeVolume.value = volume.coerceIn(0f, 1f)
@@ -123,6 +145,8 @@ object TimerEngine {
             .put("version", 3)
             .put("theme", if (_darkTheme.value) "dark" else "light")
             .put("chimeVolume", _chimeVolume.value.toDouble())
+            .put("doNotDisturb", _doNotDisturb.value)
+            .put("keepScreenOn", _keepScreenOn.value)
             .put("timers", JSONArray().put(
                 JSONObject().put("duration", t.durationSec).put("repeat", t.repeat).put("chime", t.chime)
             ))
@@ -133,6 +157,8 @@ object TimerEngine {
         val json = runCatching { JSONObject(prefs.getString("json", null) ?: "{}") }.getOrDefault(JSONObject())
         _darkTheme.value = json.optString("theme", "dark") != "light"
         _chimeVolume.value = json.optDouble("chimeVolume", 0.8).toFloat().coerceIn(0f, 1f)
+        _doNotDisturb.value = json.optBoolean("doNotDisturb", false)
+        _keepScreenOn.value = json.optBoolean("keepScreenOn", false)
 
         // Only one timer on Android; if several were saved, keep the first.
         val t = json.optJSONArray("timers")?.optJSONObject(0) ?: JSONObject()

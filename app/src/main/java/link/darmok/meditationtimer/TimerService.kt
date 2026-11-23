@@ -55,11 +55,15 @@ class TimerService : Service() {
             stopSelf()
             return
         }
+        // The wake lock and Do Not Disturb last only while counting down, so a paused timer
+        // that gets forgotten neither drains the battery nor leaves the phone silenced.
         if (timer.status == Status.RUNNING) {
-            @Suppress("WakelockTimeout") // held exactly as long as the timer is counting down
+            @Suppress("WakelockTimeout")
             wakeLock.acquire()
-        } else if (wakeLock.isHeld) {
-            wakeLock.release()
+            if (TimerEngine.doNotDisturb.value) QuietMode.begin(this)
+        } else {
+            if (wakeLock.isHeld) wakeLock.release()
+            QuietMode.end(this)
         }
         notifications.notify(NOTIFICATION_ID, buildNotification(timer))
     }
@@ -92,6 +96,7 @@ class TimerService : Service() {
     override fun onDestroy() {
         scope.cancel()
         if (wakeLock.isHeld) wakeLock.release()
+        QuietMode.end(this)
         super.onDestroy()
     }
 

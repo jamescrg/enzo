@@ -31,7 +31,7 @@ val CHIMES = listOf(
     Chime("gong", "Singing Bowl 2", R.raw.deep_gong),
     Chime("moktak", "Moktak", R.raw.moktak),
     Chime("vibrate", "Vibrate", res = null, vibration = listOf(0, 500, 250, 500)),
-    Chime("vibrate_long", "Long vibrate", res = null, vibration = listOf(0, 3000)),
+    Chime("vibrate_long", "Long vibrate", res = null, vibration = listOf(0, 4500)),
 )
 
 const val DEFAULT_CHIME = "bell"

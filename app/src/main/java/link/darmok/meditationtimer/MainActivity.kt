@@ -11,12 +11,21 @@ import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.border
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.geometry.Size
@@ -78,6 +87,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -85,7 +95,9 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -143,12 +155,13 @@ private val LocalPalette = staticCompositionLocalOf { Dark }
 private val CardShape = RoundedCornerShape(20.dp)
 private val ControlShape = RoundedCornerShape(12.dp)
 
-private enum class Sheet { DURATION, SOUND }
+private enum class Sheet { DURATION, SETTINGS }
 
 @Composable
 fun TimerApp() {
     val timer by TimerEngine.timer.collectAsStateWithLifecycle()
     val dark by TimerEngine.darkTheme.collectAsStateWithLifecycle()
+    val keepScreenOn by TimerEngine.keepScreenOn.collectAsStateWithLifecycle()
     val p = if (dark) Dark else Light
 
     val activity = LocalContext.current as ComponentActivity
@@ -170,34 +183,74 @@ fun TimerApp() {
         }
     }
 
+    // Only while counting down, so a paused timer left on a table doesn't hold the screen on.
+    val view = LocalView.current
+    DisposableEffect(keepScreenOn && running) {
+        view.keepScreenOn = keepScreenOn && running
+        onDispose { view.keepScreenOn = false }
+    }
+
     var sheet by remember { mutableStateOf<Sheet?>(null) }
     val minutes = timer.durationSec / 60
 
     CompositionLocalProvider(LocalPalette provides p) {
-        Box(Modifier.fillMaxSize().background(p.bg), contentAlignment = Alignment.TopCenter) {
+        val scrollState = rememberScrollState()
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(p.bg)
+                // Swipe up anywhere to pull up settings. Watched on the way down to the children
+                // and never consumed, so buttons and the ring still get their taps.
+                .pointerInput(Unit) {
+                    val threshold = 56.dp.toPx()
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        var opened = false
+                        while (true) {
+                            val change = awaitPointerEvent(PointerEventPass.Initial)
+                                .changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) break
+                            val moved = change.position - down.position
+                            val mostlyUp = moved.y < -threshold && -moved.y > abs(moved.x) * 2
+                            // On a screen small enough to scroll, an upward drag scrolls first.
+                            if (!opened && mostlyUp && !scrollState.canScrollForward) {
+                                opened = true
+                                sheet = Sheet.SETTINGS
+                            }
+                        }
+                    }
+                },
+            contentAlignment = Alignment.TopCenter,
+        ) {
             // Toolbar at the top, countdown in the middle, controls at the bottom in thumb reach.
             Column(
                 Modifier
                     .fillMaxSize()
                     .safeDrawingPadding()
                     .widthIn(max = 560.dp)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                // Settings: tap this small ring (it echoes the timer), or swipe up anywhere.
+                Box(
+                    Modifier
+                        .align(Alignment.End)
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .clickable(role = Role.Button, onClickLabel = "Settings") { sheet = Sheet.SETTINGS },
+                    contentAlignment = Alignment.Center,
                 ) {
-                    AppButton("Sound", onClick = { sheet = Sheet.SOUND })
-                    AppButton(if (dark) "Light" else "Dark", onClick = TimerEngine::toggleTheme)
+                    Box(Modifier.size(22.dp).alpha(0.8f).border(2.5.dp, p.fg, CircleShape))
                 }
 
                 val remainingMs = timer.remainingAt(now)
                 CountdownRing(
                     fraction = 1f - remainingMs / (timer.durationSec * 1000f),
                     modifier = Modifier.padding(vertical = 24.dp).fillMaxWidth(0.8f).widthIn(max = 320.dp),
+                    // Tap the time to change it. Locked once the timer has been started, as on desktop.
+                    onClick = if (idle) ({ sheet = Sheet.DURATION }) else null,
                 ) {
                     val text = formatTime(remainingMs)
                     Text(
@@ -214,31 +267,7 @@ fun TimerApp() {
                     Column(
                         Modifier.fillMaxWidth().background(p.bgDim, CardShape).padding(8.dp),
                     ) {
-                        // Duration is locked once the timer has been started, as on desktop.
-                        SettingRow(
-                            "Duration", "$minutes min",
-                            enabled = idle, onClick = { sheet = Sheet.DURATION },
-                        )
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 56.dp)
-                                .clip(ControlShape)
-                                .toggleable(timer.repeat, role = Role.Switch, onValueChange = TimerEngine::setRepeat)
-                                .padding(horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("Repeat", Modifier.weight(1f), color = p.fg, fontSize = 16.sp)
-                            Switch(
-                                checked = timer.repeat,
-                                onCheckedChange = null,
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = p.bgDim, checkedTrackColor = p.accent,
-                                    uncheckedThumbColor = p.fg, uncheckedTrackColor = p.btnBg,
-                                    uncheckedBorderColor = p.btnHover,
-                                ),
-                            )
-                        }
+                        SwitchRow("Repeat", timer.repeat, onChange = TimerEngine::setRepeat)
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -269,7 +298,7 @@ fun TimerApp() {
                 onChange = { TimerEngine.setDuration(it * 60) },
                 onDismiss = { sheet = null },
             )
-            Sheet.SOUND -> SoundSheet(onDismiss = { sheet = null })
+            Sheet.SETTINGS -> SettingsSheet(onDismiss = { sheet = null })
             null -> {}
         }
     }
@@ -277,11 +306,18 @@ fun TimerApp() {
 
 /** Ring showing [fraction] of the session elapsed, filling clockwise from the top. */
 @Composable
-private fun CountdownRing(fraction: Float, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+private fun CountdownRing(
+    fraction: Float,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
     val p = LocalPalette.current
     Box(
         modifier
             .aspectRatio(1f)
+            .clip(CircleShape)
+            .clickable(enabled = onClick != null, role = Role.Button, onClickLabel = "Set duration") { onClick?.invoke() }
             .drawBehind {
                 val stroke = 10.dp.toPx()
                 val inset = Offset(stroke / 2, stroke / 2)
@@ -300,21 +336,34 @@ private fun CountdownRing(fraction: Float, modifier: Modifier = Modifier, conten
     ) { content() }
 }
 
-// ── Sound ──────────────────────────────────────────────────────────
+// ── Settings ───────────────────────────────────────────────────────
 
+/** Everything that isn't the timer itself: chime, volume, and how the phone behaves meanwhile. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SoundSheet(onDismiss: () -> Unit) {
+private fun SettingsSheet(onDismiss: () -> Unit) {
     val p = LocalPalette.current
+    val context = LocalContext.current
     val timer by TimerEngine.timer.collectAsStateWithLifecycle()
     val chimeVolume by TimerEngine.chimeVolume.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val dark by TimerEngine.darkTheme.collectAsStateWithLifecycle()
+    val doNotDisturb by TimerEngine.doNotDisturb.collectAsStateWithLifecycle()
+    val keepScreenOn by TimerEngine.keepScreenOn.collectAsStateWithLifecycle()
+
+    // Re-checked on every return to the app, since access is granted in system settings.
+    var dndAccess by remember { mutableStateOf(QuietMode.hasAccess(context)) }
+    LifecycleResumeEffect(Unit) {
+        dndAccess = QuietMode.hasAccess(context)
+        onPauseOrDispose {}
+    }
+
     val audio = remember { context.getSystemService(AudioManager::class.java) }
     val maxStep = remember { audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1) }
     fun stepOf(percent: Int) = (percent * maxStep / 100f).roundToInt()
     fun systemPercent() = (audio.getStreamVolume(AudioManager.STREAM_MUSIC) * 100f / maxStep).roundToInt()
 
     var systemVolume by remember { mutableIntStateOf(systemPercent()) }
+    var tab by remember { mutableStateOf(SettingsTab.CHIME) }
 
     // Follow changes made elsewhere (volume keys, quick settings). Android volume has coarse
     // steps, so only resync when the actual step differs from what the slider already implies.
@@ -335,6 +384,8 @@ private fun SoundSheet(onDismiss: () -> Unit) {
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        // Tall enough to fill the screen, so stop short of the status bar.
+        modifier = Modifier.statusBarsPadding(),
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = p.modalBg,
         contentColor = p.fg,
@@ -346,39 +397,100 @@ private fun SoundSheet(onDismiss: () -> Unit) {
                 .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Row(Modifier.padding(start = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Sound", Modifier.weight(1f),
-                    color = p.fg, fontSize = 20.sp, fontWeight = FontWeight.Bold,
-                )
-                AppButton("Test Chime", onClick = TimerEngine::testChime)
-            }
-
-            // Tapping a chime selects it and plays it, like a ringtone picker.
-            CHIMES.forEach { chime ->
-                OptionRow(chime.label, selected = chime.id == timer.chime) {
-                    TimerEngine.setChime(chime.id)
-                    TimerEngine.testChime()
+            // Segmented tabs
+            Row(
+                Modifier.fillMaxWidth().background(p.bgDim, ControlShape).padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                SettingsTab.entries.forEach { t ->
+                    val selected = t == tab
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(if (selected) p.btnBg else Color.Transparent)
+                            .selectable(selected, role = Role.Tab) { tab = t },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            t.label, Modifier.alpha(if (selected) 1f else 0.6f),
+                            color = p.fg, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             }
 
+            // Same height for every tab (sized for the chime list) so the sheet doesn't jump.
             Column(
-                Modifier.padding(start = 16.dp, top = 20.dp, end = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                Modifier.padding(top = 12.dp).heightIn(min = 400.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                VolumeRow("System volume", systemVolume, onChange = {
-                    systemVolume = it
-                    audio.setStreamVolume(AudioManager.STREAM_MUSIC, stepOf(it), 0)
-                })
-                VolumeRow(
-                    "Chime volume", (chimeVolume * 100).roundToInt(),
-                    onChange = { TimerEngine.setChimeVolume(it / 100f) },
-                    onChangeFinished = TimerEngine::save,
-                )
+                when (tab) {
+                    // Tapping a chime selects it and plays it, like a ringtone picker.
+                    SettingsTab.CHIME -> CHIMES.forEachIndexed { i, chime ->
+                        // Thin rule between the sounds and the silent vibrate options.
+                        if (chime.res == null && CHIMES.getOrNull(i - 1)?.res != null) {
+                            Box(
+                                Modifier
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(p.btnHover),
+                            )
+                        }
+                        OptionRow(chime.label, selected = chime.id == timer.chime) {
+                            TimerEngine.setChime(chime.id)
+                            TimerEngine.testChime()
+                        }
+                    }
+
+                    SettingsTab.VOLUME -> Column(
+                        Modifier.padding(start = 16.dp, top = 8.dp, end = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        VolumeRow("System", systemVolume, onChange = {
+                            systemVolume = it
+                            audio.setStreamVolume(AudioManager.STREAM_MUSIC, stepOf(it), 0)
+                        })
+                        VolumeRow(
+                            "Chime", (chimeVolume * 100).roundToInt(),
+                            onChange = { TimerEngine.setChimeVolume(it / 100f) },
+                            onChangeFinished = TimerEngine::save,
+                        )
+                        AppButton(
+                            "Test chime", onClick = TimerEngine::testChime,
+                            modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
+                        )
+                    }
+
+                    SettingsTab.OPTIONS -> {
+                        // Shown as on only while the system permission is actually granted.
+                        SwitchRow(
+                            "Do Not Disturb", doNotDisturb && dndAccess,
+                            caption = "Silence calls and notifications while the timer runs",
+                            onChange = { on ->
+                                TimerEngine.setDoNotDisturb(on)
+                                if (on && !dndAccess) {
+                                    // One-time grant in system settings; the switch turns on when the user returns.
+                                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+                                }
+                            },
+                        )
+                        SwitchRow(
+                            "Keep screen on", keepScreenOn,
+                            caption = "Stay lit while the timer runs",
+                            onChange = TimerEngine::setKeepScreenOn,
+                        )
+                        SwitchRow("Dark theme", dark, onChange = { TimerEngine.toggleTheme() })
+                    }
+                }
             }
         }
     }
 }
+
+private enum class SettingsTab(val label: String) { CHIME("Chime"), VOLUME("Volume"), OPTIONS("Options") }
 
 @Composable
 private fun VolumeRow(label: String, percent: Int, onChange: (Int) -> Unit, onChangeFinished: () -> Unit = {}) {
@@ -403,24 +515,33 @@ private fun VolumeRow(label: String, percent: Int, onChange: (Int) -> Unit, onCh
 
 // ── Shared widgets ─────────────────────────────────────────────────
 
-/** A full-width "label … value ›" row that opens a picker. */
+/** A full-width "label … switch" row; the whole row is the touch target. */
 @Composable
-private fun SettingRow(label: String, value: String, enabled: Boolean, onClick: () -> Unit) {
+private fun SwitchRow(label: String, checked: Boolean, caption: String? = null, onChange: (Boolean) -> Unit) {
     val p = LocalPalette.current
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
             .clip(ControlShape)
-            .clickable(enabled = enabled, role = Role.DropdownList, onClick = onClick)
-            .padding(horizontal = 16.dp)
-            .alpha(if (enabled) 1f else 0.45f),
+            .toggleable(checked, role = Role.Switch, onValueChange = onChange)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(label, Modifier.weight(1f), color = p.fg, fontSize = 16.sp)
-        Text(value, color = p.accent, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        Text("›", Modifier.alpha(0.5f), color = p.fg, fontSize = 20.sp)
+        Column(Modifier.weight(1f)) {
+            Text(label, color = p.fg, fontSize = 16.sp)
+            if (caption != null) Text(caption, Modifier.alpha(0.65f), color = p.fg, fontSize = 14.sp)
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = p.bgDim, checkedTrackColor = p.accent,
+                uncheckedThumbColor = p.fg, uncheckedTrackColor = p.btnBg,
+                uncheckedBorderColor = p.btnHover,
+            ),
+        )
     }
 }
 
