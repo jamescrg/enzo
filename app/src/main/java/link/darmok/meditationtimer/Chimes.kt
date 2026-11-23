@@ -16,9 +16,11 @@ import androidx.annotation.RawRes
 data class Chime(
     val id: String,
     val label: String,
-    /** Sound sample, or null for the silent vibrate-only option. */
+    /** Sound sample, or null for the silent vibrate-only options. */
     @RawRes val res: Int?,
     val maxVolume: Float = 1f,
+    /** Off/on durations in ms (starting with off) for vibrate-only options. */
+    val vibration: List<Long> = emptyList(),
 )
 
 // Ordered highest pitch to lowest
@@ -28,7 +30,8 @@ val CHIMES = listOf(
     Chime("bell", "Singing Bowl", R.raw.singing_bowl),
     Chime("gong", "Singing Bowl 2", R.raw.deep_gong),
     Chime("moktak", "Moktak", R.raw.moktak),
-    Chime("vibrate", "Vibrate only", res = null),
+    Chime("vibrate", "Vibrate", res = null, vibration = listOf(0, 500, 250, 500)),
+    Chime("vibrate_long", "Long vibrate", res = null, vibration = listOf(0, 3000)),
 )
 
 const val DEFAULT_CHIME = "bell"
@@ -43,7 +46,7 @@ object ChimePlayer {
     fun play(context: Context, chimeId: String, volume: Float) {
         val chime = chimeById(chimeId)
         if (chime.res == null) {
-            vibrateTwice(context)
+            vibrate(context, chime.vibration)
             return
         }
         val v = volume.coerceIn(0f, chime.maxVolume)
@@ -58,10 +61,10 @@ object ChimePlayer {
         player.start()
     }
 
-    /** Two short buzzes. Sent as an alarm so it still fires with the screen off. */
-    private fun vibrateTwice(context: Context) {
+    /** Sent as an alarm so it still fires with the screen off. */
+    private fun vibrate(context: Context, pattern: List<Long>) {
         val vibrator = context.getSystemService(Vibrator::class.java) ?: return
-        val effect = VibrationEffect.createWaveform(longArrayOf(0, 300, 200, 300), -1)
+        val effect = VibrationEffect.createWaveform(pattern.toLongArray(), -1)
         if (Build.VERSION.SDK_INT >= 33) {
             vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM))
         } else {
