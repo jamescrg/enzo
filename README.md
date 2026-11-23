@@ -25,3 +25,6 @@ All chime samples are CC0 (public domain) from [Freesound.org](https://freesound
 - Singing Bowl: [surly](https://freesound.org/people/surly/sounds/91196/)
 - Singing Bowl 2: [inoshirodesign](https://freesound.org/people/inoshirodesign/sounds/271370/)
 - Moktak: composite from [jonopodmore](https://freesound.org/people/jonopodmore/sounds/607215/)
+
+The optional brushstroke ring is "Enso.svg" by Kendrick Shaw, CC0, from
+[Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Enso.svg).

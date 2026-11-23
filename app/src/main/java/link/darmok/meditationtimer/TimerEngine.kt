@@ -53,6 +53,10 @@ object TimerEngine {
     private val _ringOnly = MutableStateFlow(false)
     val ringOnly: StateFlow<Boolean> = _ringOnly
 
+    /** Show progress as a painted ensō instead of the plain ring. */
+    private val _brushRing = MutableStateFlow(false)
+    val brushRing: StateFlow<Boolean> = _brushRing
+
     private fun now() = SystemClock.elapsedRealtime()
 
     fun init(application: Application) {
@@ -124,6 +128,11 @@ object TimerEngine {
         save()
     }
 
+    fun setBrushRing(enabled: Boolean) {
+        _brushRing.value = enabled
+        save()
+    }
+
     fun setRingOnly(enabled: Boolean) {
         _ringOnly.value = enabled
         save()
@@ -159,6 +168,7 @@ object TimerEngine {
             .put("doNotDisturb", _doNotDisturb.value)
             .put("keepScreenOn", _keepScreenOn.value)
             .put("ringOnly", _ringOnly.value)
+            .put("brushRing", _brushRing.value)
             .put("timers", JSONArray().put(
                 JSONObject().put("duration", t.durationSec).put("repeat", t.repeat).put("chime", t.chime)
             ))
@@ -172,6 +182,7 @@ object TimerEngine {
         _doNotDisturb.value = json.optBoolean("doNotDisturb", false)
         _keepScreenOn.value = json.optBoolean("keepScreenOn", false)
         _ringOnly.value = json.optBoolean("ringOnly", false)
+        _brushRing.value = json.optBoolean("brushRing", false)
 
         // Only one timer on Android; if several were saved, keep the first.
         val t = json.optJSONArray("timers")?.optJSONObject(0) ?: JSONObject()

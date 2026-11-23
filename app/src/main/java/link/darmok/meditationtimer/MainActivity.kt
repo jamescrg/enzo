@@ -18,6 +18,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -46,7 +49,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.systemBarsIgnoringVisibility
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -160,11 +168,13 @@ private val ControlShape = RoundedCornerShape(12.dp)
 private enum class Sheet { DURATION, SETTINGS }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun TimerApp() {
     val timer by TimerEngine.timer.collectAsStateWithLifecycle()
     val dark by TimerEngine.darkTheme.collectAsStateWithLifecycle()
     val keepScreenOn by TimerEngine.keepScreenOn.collectAsStateWithLifecycle()
     val ringOnly by TimerEngine.ringOnly.collectAsStateWithLifecycle()
+    val brushRing by TimerEngine.brushRing.collectAsStateWithLifecycle()
     val p = if (dark) Dark else Light
 
     val activity = LocalContext.current as ComponentActivity
@@ -207,6 +217,19 @@ fun TimerApp() {
             controlsVisible = false
         }
     }
+    // With the controls faded, the status bar and navigation buttons go too. A touch brings
+    // everything back; a swipe from the edge shows the bars briefly, as in any full-screen app.
+    DisposableEffect(controlsVisible) {
+        val bars = WindowCompat.getInsetsController(activity.window, view)
+        if (controlsVisible) {
+            bars.show(WindowInsetsCompat.Type.systemBars())
+        } else {
+            bars.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            bars.hide(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose { bars.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+
     val controlsAlpha by animateFloatAsState(
         if (controlsVisible) 1f else 0f, tween(if (controlsVisible) 250 else 1500), label = "controls",
     )
@@ -260,7 +283,9 @@ fun TimerApp() {
             Column(
                 Modifier
                     .fillMaxSize()
-                    .safeDrawingPadding()
+                    // Sized for the bars whether or not they are showing, so nothing shifts when
+                    // they hide.
+                    .windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.union(WindowInsets.displayCutout))
                     .widthIn(max = 560.dp)
                     .verticalScroll(scrollState)
                     .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
@@ -284,6 +309,7 @@ fun TimerApp() {
                 val remainingMs = timer.remainingAt(now)
                 CountdownRing(
                     fraction = 1f - remainingMs / (timer.durationSec * 1000f),
+                    brush = brushRing,
                     modifier = Modifier.padding(vertical = 24.dp).fillMaxWidth(0.8f).widthIn(max = 320.dp),
                     // Tap the time to change it. Locked once the timer has been started, as on desktop.
                     onClick = if (idle) ({ sheet = Sheet.DURATION }) else null,
@@ -293,8 +319,13 @@ fun TimerApp() {
                         text,
                         Modifier.alpha(timeAlpha),
                         color = p.fg,
-                        // Three-digit minutes need a smaller size to stay inside the ring.
-                        fontSize = if (text.length > 5) 58.sp else 72.sp,
+                        // Three-digit minutes need a smaller size to stay inside the ring, and the
+                        // painted ring is much thicker than the plain one.
+                        fontSize = when {
+                            brushRing -> if (text.length > 5) 44.sp else 56.sp
+                            text.length > 5 -> 58.sp
+                            else -> 72.sp
+                        },
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace, maxLines = 1, softWrap = false,
                     )
@@ -346,6 +377,7 @@ fun TimerApp() {
 private fun CountdownRing(
     fraction: Float,
     modifier: Modifier = Modifier,
+    brush: Boolean = false,
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
@@ -356,11 +388,15 @@ private fun CountdownRing(
             .clip(CircleShape)
             .clickable(enabled = onClick != null, role = Role.Button, onClickLabel = "Set duration") { onClick?.invoke() }
             .drawBehind {
+                val f = fraction.coerceIn(0f, 1f)
+                if (brush) {
+                    with(EnsoStroke) { drawEnso(f, ink = p.fg, track = p.btnBg) }
+                    return@drawBehind
+                }
                 val stroke = 10.dp.toPx()
                 val inset = Offset(stroke / 2, stroke / 2)
                 val arcSize = Size(size.width - stroke, size.height - stroke)
                 drawArc(p.btnBg, 0f, 360f, useCenter = false, topLeft = inset, size = arcSize, style = Stroke(stroke))
-                val f = fraction.coerceIn(0f, 1f)
                 if (f > 0f) {
                     drawArc(
                         p.fg, startAngle = -90f, sweepAngle = 360f * f,
@@ -387,6 +423,7 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
     val doNotDisturb by TimerEngine.doNotDisturb.collectAsStateWithLifecycle()
     val keepScreenOn by TimerEngine.keepScreenOn.collectAsStateWithLifecycle()
     val ringOnly by TimerEngine.ringOnly.collectAsStateWithLifecycle()
+    val brushRing by TimerEngine.brushRing.collectAsStateWithLifecycle()
 
     // Re-checked on every return to the app, since access is granted in system settings.
     var dndAccess by remember { mutableStateOf(QuietMode.hasAccess(context)) }
@@ -525,6 +562,7 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                             caption = "Hide the countdown too when the controls fade",
                             onChange = TimerEngine::setRingOnly,
                         )
+                        SwitchRow("Brushstroke ring", brushRing, onChange = TimerEngine::setBrushRing)
                         SwitchRow("Dark theme", dark, onChange = { TimerEngine.toggleTheme() })
                     }
                 }
