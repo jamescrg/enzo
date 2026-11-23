@@ -385,8 +385,7 @@ private fun CountdownRing(
     Box(
         modifier
             .aspectRatio(1f)
-            .clip(CircleShape)
-            .clickable(enabled = onClick != null, role = Role.Button, onClickLabel = "Set duration") { onClick?.invoke() }
+            // Drawn before the clip: the painted ring is larger than the tap target.
             .drawBehind {
                 val f = fraction.coerceIn(0f, 1f)
                 if (brush) {
@@ -404,7 +403,9 @@ private fun CountdownRing(
                         style = Stroke(stroke, cap = StrokeCap.Round),
                     )
                 }
-            },
+            }
+            .clip(CircleShape)
+            .clickable(enabled = onClick != null, role = Role.Button, onClickLabel = "Set duration") { onClick?.invoke() },
         contentAlignment = Alignment.Center,
     ) { content() }
 }
