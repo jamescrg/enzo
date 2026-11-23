@@ -61,6 +61,7 @@ object TimerEngine {
     // ── Timer controls ────────────────────────────────────────────
 
     fun start() {
+        ChimePlayer.dismissFinished(app)
         _timer.value = _timer.value.started(now())
         ContextCompat.startForegroundService(app, Intent(app, TimerService::class.java))
         if (ticker?.isActive != true) ticker = scope.launch { runTicker() }
@@ -71,6 +72,7 @@ object TimerEngine {
     }
 
     fun reset() {
+        ChimePlayer.dismissFinished(app)
         _timer.value = _timer.value.reset()
     }
 
