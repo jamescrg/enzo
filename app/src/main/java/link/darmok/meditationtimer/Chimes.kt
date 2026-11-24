@@ -44,7 +44,7 @@ val CHIMES = listOf(
     Chime("gong", "Deep Bowl", R.raw.bowl_deep, maxVolume = 0.2f),
     Chime("moktak", "Moktak", R.raw.moktak),
     Chime("moktak_short", "Moktak (short)", R.raw.moktak_short),
-    // Two wooden blocks clapped together, twice; stands in for Zen clappers (taku).
+    // Two wooden blocks clapped together, three times; stands in for Zen clappers (taku).
     Chime("clappers", "Clappers", R.raw.clappers),
     // Generated: three short 1 kHz tones, four times over, like a kitchen timer.
     Chime("beep", "Beep", R.raw.beep),

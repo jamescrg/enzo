@@ -139,7 +139,6 @@ class Palette(
     val bg: Color,
     val bgDim: Color,
     val fg: Color,
-    val accent: Color,
     val btnBg: Color,
     val btnHover: Color,
     val modalBg: Color,
@@ -150,14 +149,14 @@ class Palette(
 /** Everforest Dark */
 private val Dark = Palette(
     bg = Color(0xFF2D353B), bgDim = Color(0xFF232A2E), fg = Color(0xFFD3C6AA),
-    accent = Color(0xFFA7C080), btnBg = Color(0xFF3D484D), btnHover = Color(0xFF475258),
+    btnBg = Color(0xFF3D484D), btnHover = Color(0xFF475258),
     modalBg = Color(0xFF343F44), modalBorder = Color(0xFF475258), inputBg = Color(0xFF2D353B),
 )
 
 /** Seoul256 Light */
 private val Light = Palette(
     bg = Color(0xFFE1E1E1), bgDim = Color(0xFFD9D9D9), fg = Color(0xFF3F3F3F),
-    accent = Color(0xFF719872), btnBg = Color(0xFFD0D0D0), btnHover = Color(0xFFC0C0C0),
+    btnBg = Color(0xFFD0D0D0), btnHover = Color(0xFFC0C0C0),
     modalBg = Color(0xFFE8E8E8), modalBorder = Color(0xFFC0C0C0), inputBg = Color(0xFFF0F0F0),
 )
 
@@ -246,7 +245,7 @@ fun TimerApp() {
             Modifier
                 .fillMaxSize()
                 .background(p.bg)
-                // Swipe up anywhere to pull up settings. Watched on the way down to the children
+                // Swipe up, or left to right, anywhere to pull up settings. Watched on the way down to the children
                 // and normally not consumed, so buttons and the ring still get their taps.
                 .pointerInput(Unit) {
                     val threshold = 56.dp.toPx()
@@ -272,8 +271,9 @@ fun TimerApp() {
                             if (!change.pressed) break
                             val moved = change.position - down.position
                             val mostlyUp = moved.y < -threshold && -moved.y > abs(moved.x) * 2
+                            val mostlyRight = moved.x > threshold && moved.x > abs(moved.y) * 2
                             // On a screen small enough to scroll, an upward drag scrolls first.
-                            if (!opened && mostlyUp && !scrollState.canScrollForward) {
+                            if (!opened && (mostlyRight || (mostlyUp && !scrollState.canScrollForward))) {
                                 opened = true
                                 sheet = Sheet.SETTINGS
                             }
@@ -295,20 +295,20 @@ fun TimerApp() {
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // Settings: tap the gear, or swipe up anywhere.
+                // Settings: tap the menu icon, or swipe up or left-to-right anywhere.
                 Box(
                     Modifier
                         .align(Alignment.End)
                         .padding(top = 8.dp, end = 8.dp)
                         .alpha(controlsAlpha)
-                        .size(64.dp) // generous touch target around a small ring
+                        .size(64.dp) // generous touch target around a small icon
                         .clip(CircleShape)
                         .clickable(role = Role.Button, onClickLabel = "Settings") { sheet = Sheet.SETTINGS },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         painterResource(R.drawable.ic_settings), contentDescription = null,
-                        modifier = Modifier.size(28.dp).alpha(0.8f), tint = p.fg,
+                        modifier = Modifier.size(34.dp).alpha(0.8f), tint = p.fg,
                     )
                 }
 
@@ -340,10 +340,11 @@ fun TimerApp() {
                 }
 
                 Column(Modifier.alpha(controlsAlpha), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Column(
-                        Modifier.fillMaxWidth().background(p.bgDim, CardShape).padding(8.dp),
-                    ) {
+                    // Each setting on its own card.
+                    Box(Modifier.fillMaxWidth().background(p.bgDim, CardShape).padding(8.dp)) {
                         ValueRow("Chime", chimeById(timer.chime).label) { sheet = Sheet.CHIME }
+                    }
+                    Box(Modifier.fillMaxWidth().background(p.bgDim, CardShape).padding(8.dp)) {
                         SwitchRow("Repeat", timer.repeat, onChange = TimerEngine::setRepeat)
                     }
 
@@ -361,7 +362,6 @@ fun TimerApp() {
                             },
                             onClick = { if (running) TimerEngine.pause() else TimerEngine.start() },
                             modifier = Modifier.weight(1f).heightIn(min = 64.dp),
-                            primary = true,
                             fontSize = 18.sp,
                         )
                     }
@@ -405,7 +405,7 @@ private fun CountdownRing(
                     with(EnsoStroke) { drawEnso(f, ink = p.fg, track = p.btnBg) }
                     return@drawBehind
                 }
-                val stroke = 10.dp.toPx()
+                val stroke = 14.dp.toPx()
                 val inset = Offset(stroke / 2, stroke / 2)
                 val arcSize = Size(size.width - stroke, size.height - stroke)
                 drawArc(p.btnBg, 0f, 360f, useCenter = false, topLeft = inset, size = arcSize, style = Stroke(stroke))
@@ -603,7 +603,7 @@ private fun VolumeRow(label: String, percent: Int, onChange: (Int) -> Unit, onCh
             valueRange = 0f..100f,
             modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
             colors = SliderDefaults.colors(
-                thumbColor = p.accent, activeTrackColor = p.accent, inactiveTrackColor = p.btnBg,
+                thumbColor = p.fg, activeTrackColor = p.fg, inactiveTrackColor = p.btnBg,
             ),
         )
     }
@@ -633,7 +633,7 @@ private fun SwitchRow(label: String, checked: Boolean, caption: String? = null, 
             checked = checked,
             onCheckedChange = null,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = p.bgDim, checkedTrackColor = p.accent,
+                checkedThumbColor = p.bgDim, checkedTrackColor = p.fg,
                 uncheckedThumbColor = p.fg, uncheckedTrackColor = p.btnBg,
                 uncheckedBorderColor = p.btnHover,
             ),
@@ -685,7 +685,7 @@ private fun ValueRow(label: String, value: String, onClick: () -> Unit) {
     }
 }
 
-/** A large single-choice row; the selected one is filled with the accent colour. */
+/** A large single-choice row; the selected one is filled with the ink colour. */
 @Composable
 private fun OptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
     val p = LocalPalette.current
@@ -694,7 +694,7 @@ private fun OptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
             .fillMaxWidth()
             .heightIn(min = 52.dp)
             .clip(ControlShape)
-            .background(if (selected) p.accent else Color.Transparent)
+            .background(if (selected) p.fg else Color.Transparent)
             .selectable(selected, role = Role.RadioButton, onClick = onClick)
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -743,17 +743,18 @@ private fun ChimeSheet(selected: String, onDismiss: () -> Unit) {
         contentColor = p.fg,
         dragHandle = { BottomSheetDefaults.DragHandle(color = p.btnHover) },
     ) {
+        // Only the list scrolls, so the buttons stay in reach however many chimes there are.
         Column(
-            Modifier
-                .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            Modifier.padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
                 "Chime", Modifier.padding(start = 16.dp),
                 color = p.fg, fontSize = 20.sp, fontWeight = FontWeight.Bold,
             )
-            ChimeList(selected)
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                ChimeList(selected)
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 AppButton(
                     "Test", onClick = TimerEngine::testChime,
@@ -840,7 +841,7 @@ private fun DurationSheet(
                             .weight(1f)
                             .height(48.dp)
                             .clip(ControlShape)
-                            .background(if (selected) p.accent else p.btnBg)
+                            .background(if (selected) p.fg else p.btnBg)
                             .clickable(role = Role.Button, onClickLabel = "$preset minutes") {
                                 scope.launch { listState.animateScrollToItem(preset - 1) }
                             },
@@ -877,7 +878,7 @@ private fun DurationSheet(
                             Text(
                                 "${i + 1}",
                                 Modifier.alpha(if (selected) 1f else 0.4f),
-                                color = if (selected) p.accent else p.fg,
+                                color = p.fg,
                                 fontSize = if (selected) 34.sp else 24.sp,
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                             )
