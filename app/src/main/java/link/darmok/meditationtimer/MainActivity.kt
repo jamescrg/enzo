@@ -245,7 +245,7 @@ fun TimerApp() {
             Modifier
                 .fillMaxSize()
                 .background(p.bg)
-                // Swipe up, or left to right, anywhere to pull up settings. Watched on the way down to the children
+                // Swipe up, or right to left, anywhere to pull up settings. Watched on the way down to the children
                 // and normally not consumed, so buttons and the ring still get their taps.
                 .pointerInput(Unit) {
                     val threshold = 56.dp.toPx()
@@ -265,18 +265,21 @@ fun TimerApp() {
                             return@awaitEachGesture
                         }
                         var opened = false
+                        var sideways = false
                         while (true) {
                             val change = awaitPointerEvent(PointerEventPass.Initial)
                                 .changes.firstOrNull { it.id == down.id } ?: break
-                            // Once a swipe has opened settings, the rest of the gesture is ours, so
-                            // lifting the finger doesn't also count as a tap on whatever is under it.
-                            if (opened) change.consume()
+                            // Once a swipe has opened settings, or the finger has plainly dragged
+                            // sideways, the rest of the gesture is ours, so lifting the finger
+                            // doesn't also count as a tap on whatever is under it.
+                            if (opened || sideways) change.consume()
                             if (!change.pressed) break
                             val moved = change.position - down.position
                             val mostlyUp = moved.y < -threshold && -moved.y > abs(moved.x) * 2
-                            val mostlyRight = moved.x > threshold && moved.x > abs(moved.y) * 2
+                            if (abs(moved.x) > threshold && abs(moved.x) > abs(moved.y)) sideways = true
+                            val mostlyLeft = moved.x < -threshold && -moved.x > abs(moved.y) * 2
                             // On a screen small enough to scroll, an upward drag scrolls first.
-                            if (!opened && (mostlyRight || (mostlyUp && !scrollState.canScrollForward))) {
+                            if (!opened && (mostlyLeft || (mostlyUp && !scrollState.canScrollForward))) {
                                 opened = true
                                 sheet = Sheet.SETTINGS
                                 change.consume()
@@ -299,7 +302,7 @@ fun TimerApp() {
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // Settings: tap the menu icon, or swipe up or left-to-right anywhere.
+                // Settings: tap the menu icon, or swipe up or right-to-left anywhere.
                 Box(
                     Modifier
                         .align(Alignment.End)
@@ -345,10 +348,10 @@ fun TimerApp() {
 
                 Column(Modifier.alpha(controlsAlpha), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     // Each setting on its own card.
-                    Box(Modifier.fillMaxWidth().background(p.bgDim, CardShape).padding(8.dp)) {
+                    Box(Modifier.fillMaxWidth().border(1.dp, p.btnHover, CardShape).padding(8.dp)) {
                         ValueRow("Chime", chimeById(timer.chime).label) { sheet = Sheet.CHIME }
                     }
-                    Box(Modifier.fillMaxWidth().background(p.bgDim, CardShape).padding(8.dp)) {
+                    Box(Modifier.fillMaxWidth().border(1.dp, p.btnHover, CardShape).padding(8.dp)) {
                         SwitchRow("Repeat", timer.repeat, onChange = TimerEngine::setRepeat)
                     }
 
@@ -658,7 +661,7 @@ private fun AppButton(
         modifier
             .heightIn(min = 48.dp)
             .clip(ControlShape)
-            .background(if (primary) p.fg else p.btnBg)
+            .then(if (primary) Modifier.background(p.fg) else Modifier.border(1.dp, p.btnHover, ControlShape))
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
