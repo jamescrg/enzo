@@ -495,8 +495,33 @@ private fun SettingsContent() {
         onDispose { context.unregisterReceiver(receiver) }
     }
 
-    SectionLabel("Volume")
-    Column(
+    // Segmented tabs: one group of settings on screen at a time.
+    var tab by remember { mutableStateOf(SettingsTab.VOLUME) }
+    Row(
+        Modifier.fillMaxWidth().border(1.dp, p.btnHover, ControlShape).padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        SettingsTab.entries.forEach { t ->
+            val selected = t == tab
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .then(if (selected) Modifier.border(1.dp, p.fg, RoundedCornerShape(16.dp)) else Modifier)
+                    .selectable(selected, role = Role.Tab) { tab = t },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    t.label, Modifier.alpha(if (selected) 1f else 0.6f),
+                    color = p.fg, fontSize = 16.sp,
+                )
+            }
+        }
+    }
+    Box(Modifier.height(12.dp))
+
+    if (tab == SettingsTab.VOLUME) Column(
         Modifier.padding(start = 16.dp, top = 8.dp, end = 8.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -515,41 +540,35 @@ private fun SettingsContent() {
         )
     }
 
-    SectionLabel("Options")
-    // Shown as on only while the system permission is actually granted.
-    SwitchRow(
-        "Do Not Disturb", doNotDisturb && dndAccess,
-        caption = "Silence calls and notifications while the timer runs",
-        onChange = { on ->
-            TimerEngine.setDoNotDisturb(on)
-            if (on && !dndAccess) {
-                // One-time grant in system settings; the switch turns on when the user returns.
-                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
-            }
-        },
-    )
-    SwitchRow(
-        "Keep screen on", keepScreenOn,
-        caption = "Stay lit while the timer runs",
-        onChange = TimerEngine::setKeepScreenOn,
-    )
-    SwitchRow(
-        "Ring only", ringOnly,
-        caption = "Hide the countdown too when the controls fade",
-        onChange = TimerEngine::setRingOnly,
-    )
-    SwitchRow("Brushstroke ring", brushRing, onChange = TimerEngine::setBrushRing)
-    SwitchRow("Dark theme", dark, onChange = { TimerEngine.toggleTheme() })
+    if (tab == SettingsTab.OPTIONS) {
+        // Shown as on only while the system permission is actually granted.
+        SwitchRow(
+            "Do Not Disturb", doNotDisturb && dndAccess,
+            caption = "Silence calls and notifications while the timer runs",
+            onChange = { on ->
+                TimerEngine.setDoNotDisturb(on)
+                if (on && !dndAccess) {
+                    // One-time grant in system settings; the switch turns on when the user returns.
+                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+                }
+            },
+        )
+        SwitchRow(
+            "Keep screen on", keepScreenOn,
+            caption = "Stay lit while the timer runs",
+            onChange = TimerEngine::setKeepScreenOn,
+        )
+        SwitchRow(
+            "Ring only", ringOnly,
+            caption = "Hide the countdown too when the controls fade",
+            onChange = TimerEngine::setRingOnly,
+        )
+        SwitchRow("Brushstroke ring", brushRing, onChange = TimerEngine::setBrushRing)
+        SwitchRow("Dark theme", dark, onChange = { TimerEngine.toggleTheme() })
+    }
 }
 
-@Composable
-private fun SectionLabel(text: String) {
-    val p = LocalPalette.current
-    Text(
-        text, Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp).alpha(0.65f),
-        color = p.fg, fontSize = 14.sp,
-    )
-}
+private enum class SettingsTab(val label: String) { VOLUME("Volume"), OPTIONS("Options") }
 
 /**
  * A page covering the whole screen: a title, content that scrolls if it needs to, and buttons
