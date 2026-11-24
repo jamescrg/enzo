@@ -395,12 +395,16 @@ fun TimerApp() {
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        // Only a paused session can be reset: before it starts there is nothing
-                        // to reset, and while it runs it has to be paused first.
+                        // Before a session starts there is nothing to reset, so the button sets
+                        // the duration instead, where it is easier to find than a tap on the
+                        // time. Only a paused session can be reset: a running one has to be
+                        // paused first.
+                        val idle = timer.status == Status.IDLE
                         AppButton(
-                            "Reset", onClick = TimerEngine::reset,
+                            if (idle) "Set" else "Reset",
+                            onClick = { if (idle) sheet = Sheet.DURATION else TimerEngine.reset() },
                             modifier = Modifier.weight(1f).heightIn(min = 64.dp),
-                            enabled = timer.status == Status.PAUSED,
+                            enabled = timer.status != Status.RUNNING,
                             fontSize = 18.sp,
                         )
                         AppButton(
