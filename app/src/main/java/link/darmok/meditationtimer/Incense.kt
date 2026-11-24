@@ -23,19 +23,19 @@ import kotlin.math.sin
 
 /**
  * The incense stick: a session measured the old way, by one stick burning down. It stands in a
- * small ceramic dish, burns from the top, keeps a little ash on its glowing end until that
- * drops into the dish, and smokes while the timer runs. The countdown sits above the scene,
- * out of its way.
+ * cast iron bowl, burns from the top, keeps a little ash on its glowing end until that drops
+ * into the bowl, and smokes while the timer runs. The countdown sits above the scene, out of
+ * its way.
  *
- * The dish is real: it is cut from a photograph by Mathilde Langevin on Unsplash
- * (https://unsplash.com/photos/B-qFF8W0hog) by extras/bake_incense_dish.py, and the stick
- * stands in it where, and at the angle, the stick in that photograph does. It is drawn
- * faintly, so that the stick and not the dish is what the eye goes to. The stick and its
- * ash come from the photograph "Incense in India.jpg", CC0, from Wikimedia Commons
+ * The bowl is real: it is cut from a product photograph of a cast iron incense bowl by
+ * extras/bake_incense_dish.py, and the stick stands in its holder where, and at the angle, the
+ * stick in that photograph does. It is drawn faintly, so that the stick and not the bowl is
+ * what the eye goes to. The stick and its ash come from the photograph "Incense in
+ * India.jpg", CC0, from Wikimedia Commons
  * (https://commons.wikimedia.org/wiki/File:Incense_in_India.jpg), baked into a grey strip
  * (res/drawable-nodpi/incense.png, ash above a repeating length of stick) by
- * extras/bake_incense.py. The smoke is drawn: a few soft ribbons that rise together from the
- * ember and wander apart as they climb.
+ * extras/bake_incense.py. The smoke is drawn: a few soft
+ * ribbons that rise together from the ember and wander apart as they climb.
  */
 object Incense {
     /** Rows of the strip holding the ash, and the repeating length of stick below them. */
@@ -46,16 +46,16 @@ object Incense {
     private const val WIDTH = 0.015f
 
     /**
-     * The dish, as parts of the box: its width, its left edge and its foot. The stick goes in
-     * at [SOCKET_X], [SOCKET_Y] of the dish picture, just behind the near rim, and leans as far
+     * The bowl, as parts of the box: its width, its left edge and its feet. The stick goes into
+     * the holder in the middle at [SOCKET_X], [SOCKET_Y] of the bowl picture, and leans as far
      * from upright as the stick in the photograph.
      */
-    private const val DISH_WIDTH = 0.5f
-    private const val DISH_LEFT = 0.22f
+    private const val DISH_WIDTH = 0.4f
+    private const val DISH_LEFT = 0.3f
     private const val DISH_BOTTOM = 0.97f
-    private const val SOCKET_X = 0.614f
-    private const val SOCKET_Y = 0.217f
-    private const val LEAN_DEGREES = 10.2f
+    private const val SOCKET_X = 0.501f
+    private const val SOCKET_Y = 0.271f
+    private const val LEAN_DEGREES = 2.8f
 
     /**
      * How far the dish stands out from the background, from 0 (not at all) to 1 (as far as the
@@ -64,8 +64,8 @@ object Incense {
     private const val DISH_TONE = 0.24f
     private const val DISH_SHADING = 0.26f
 
-    /** The stick's length, as a part of the box. It is solid incense and burns to the dish. */
-    private const val LENGTH = 0.78f
+    /** The stick's length, as a part of the box. It is solid incense and burns to the holder. */
+    private const val LENGTH = 0.74f
 
     /** Ash breaks off in pieces this long, in stick widths, leaving at least [ASH_KEPT] of one standing. */
     private const val ASH_PIECE = 4f
@@ -110,8 +110,7 @@ object Incense {
             colorFilter = Beads.shaded(lerp(paper, ink, DISH_TONE), DISH_SHADING), filterQuality = FilterQuality.High,
         )
 
-        // Ash on the burning end grows until a piece breaks off and drops into the dish, out of
-        // sight behind its rim.
+        // Ash on the burning end grows until a piece breaks off and drops into the bowl.
         val piece = width * ASH_PIECE
         val fallen = if (f <= 0f) 0 else floor(burned / piece - ASH_KEPT).toInt().coerceAtLeast(0)
         val standing = if (f >= 1f) 0f else burned - fallen * piece
@@ -153,13 +152,16 @@ object Incense {
                 val breath = 0.8f + 0.2f * sin(time * 2.1f) * sin(time * 1.3f + 1f)
                 val glow = (0.45f + 0.55f * smoke) * breath
                 val ember = Offset(foot.x, tipY)
-                drawCircle(
-                    Brush.radialGradient(
-                        0f to ink.copy(alpha = 0.45f * glow), 1f to ink.copy(alpha = 0f),
-                        center = ember, radius = width * 2.6f,
-                    ),
-                    radius = width * 2.6f, center = ember,
-                )
+                // Its light in the air around it: a wide faint halo and a closer, stronger one.
+                for ((radius, strength) in listOf(width * 9f to 0.10f, width * 3.6f to 0.5f)) {
+                    drawCircle(
+                        Brush.radialGradient(
+                            0f to ink.copy(alpha = strength * glow), 1f to ink.copy(alpha = 0f),
+                            center = ember, radius = radius,
+                        ),
+                        radius = radius, center = ember,
+                    )
+                }
                 drawRect(ink, Offset(left.toFloat(), tipY - width * 0.35f), Size(width, width * 0.7f))
             }
         }
