@@ -40,10 +40,12 @@ object Beads {
     private const val INK_SHADING = 0.5f
     private const val TRACK_SHADING = 0.22f
 
+    /** The part of a bead's share of the session over which it changes from uncounted to counted. */
+    private const val FADE = 0.5f
+
     /**
-     * Draws the round in [track], with the beads counted so far in [ink]. Counting starts just
-     * right of the top and runs clockwise; the bead being counted changes gradually. The larger
-     * bead is inked only when the round is complete.
+     * Draws the round in [track], with the beads counted so far in [ink]. Counting starts with
+     * the larger bead at the top and runs clockwise; the bead being counted changes gradually.
      */
     fun DrawScope.drawBeads(tiles: ImageBitmap, fraction: Float, ink: Color, track: Color) {
         val gap = MARKER + 0.15f
@@ -73,16 +75,20 @@ object Beads {
         // The cord.
         drawCircle(track, ringRadius, center, style = Stroke(bead * 0.07f))
 
-        val counted = fraction.coerceIn(0f, 1f) * COUNT
+        // The larger bead is counted first, then the round. Each bead takes an equal share of
+        // the session and is fully inked partway through its share, so the last one is plainly
+        // lit before the session ends.
+        val counted = fraction.coerceIn(0f, 1f) * (COUNT + 1)
+        fun inked(step: Int) = ((counted - step) / FADE).coerceIn(0f, 1f)
+
+        draw(TILES - 1, 0f, bead * MARKER, track, TRACK_SHADING, 1f)
+        inked(0).let { if (it > 0f) draw(TILES - 1, 0f, bead * MARKER, ink, INK_SHADING, it) }
         for (i in 0 until COUNT) {
             val slot = gap / 2 + 0.5f + i
             val variant = i % (TILES - 1)
             draw(variant, slot, bead, track, TRACK_SHADING, 1f)
-            val amount = (counted - i).coerceIn(0f, 1f)
-            if (amount > 0f) draw(variant, slot, bead, ink, INK_SHADING, amount)
+            inked(i + 1).let { if (it > 0f) draw(variant, slot, bead, ink, INK_SHADING, it) }
         }
-        val done = fraction >= 1f
-        draw(TILES - 1, 0f, bead * MARKER, if (done) ink else track, if (done) INK_SHADING else TRACK_SHADING, 1f)
     }
 
     /** Turns a grey tile into [color], lighter where the tile is above mid-grey and darker below. */
