@@ -504,7 +504,7 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                     ) {
                         Text(
                             t.label, Modifier.alpha(if (selected) 1f else 0.6f),
-                            color = p.fg, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                            color = p.fg, fontSize = 16.sp, fontWeight = FontWeight.Normal,
                         )
                     }
                 }
@@ -661,7 +661,7 @@ private fun AppButton(
     ) {
         Text(
             text, color = if (primary) p.bgDim else p.fg,
-            fontSize = fontSize, fontWeight = FontWeight.SemiBold, maxLines = 1,
+            fontSize = fontSize, fontWeight = FontWeight.Normal, maxLines = 1,
         )
     }
 }
