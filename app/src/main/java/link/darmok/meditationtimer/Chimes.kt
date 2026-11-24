@@ -42,6 +42,9 @@ val CHIMES = listOf(
     // The harsh first instant of the strike is turned down. A rounder alternate take is kept,
     // unused, in extras/keisu_alt.ogg.
     Chime("keisu", "Keisu", R.raw.keisu, maxVolume = 0.12f),
+    // A single small church bell in Graz, struck once (about 390 Hz, with the minor-third
+    // overtone of a Western cast bell). Recorded quietly and brought up to the others' level.
+    Chime("bell_chapel", "Chapel Bell", R.raw.bell_chapel, maxVolume = 0.5f),
     Chime("moktak", "Moktak (long)", R.raw.moktak),
     Chime("moktak_short", "Moktak (short)", R.raw.moktak_short),
     // Two wooden blocks clapped together: one clap, repeated for three even beats. Stands in
