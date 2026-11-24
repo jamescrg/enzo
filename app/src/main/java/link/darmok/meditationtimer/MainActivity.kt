@@ -56,6 +56,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -318,12 +319,13 @@ fun TimerApp() {
                 // drawer (when paused, choosing a new duration starts the session over).
                 val timeLabel = if (running) "Pause" else "Set duration"
                 val onTime = { if (running) TimerEngine.pause() else sheet = Sheet.DURATION }
-                val incense = ringStyle == RING_INCENSE
+                // The incense and the labyrinth fill their square, so their time sits above it.
+                val timeAbove = ringStyle == RING_INCENSE || ringStyle == RING_LABYRINTH
 
-                // The top row: settings behind the three lines on the right and, with the
-                // incense, the time small on the left, leaving the scene below to the stick.
+                // The top row: settings behind the three lines on the right and, for those
+                // styles, the time small on the left.
                 Box(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    if (incense) {
+                    if (timeAbove) {
                         Box(
                             Modifier
                                 .align(Alignment.CenterStart)
@@ -367,7 +369,7 @@ fun TimerApp() {
                     onClickLabel = timeLabel,
                     onClick = onTime,
                 ) {
-                    if (!incense) {
+                    if (!timeAbove) {
                         // Three-digit minutes need a smaller size to stay inside the ring, and the
                         // painted rings are much thicker than the plain one.
                         val fontSize = when {
@@ -524,6 +526,10 @@ private fun CountdownRing(
                         with(Beads) { drawBeads(beadTiles, f, ink = p.fg, track = p.btnBg) }
                         return@drawBehind
                     }
+                    RING_LABYRINTH -> {
+                        with(Labyrinth) { drawLabyrinth(f, ink = p.fg, track = p.btnHover) }
+                        return@drawBehind
+                    }
                 }
                 val stroke = 14.dp.toPx()
                 val inset = Offset(stroke / 2, stroke / 2)
@@ -592,7 +598,8 @@ private fun OptionsContent() {
     ) {
         Text("Ring", color = LocalPalette.current.fg, fontSize = 16.sp)
         Segments(
-            labels = listOf("Plain", "Ensō", "Beads", "Incense"),
+            labels = listOf("Plain", "Ensō", "Beads", "Incense", "Labyrinth"),
+            perRow = 3,
             selected = RING_STYLES.indexOf(ringStyle),
             onSelect = { TimerEngine.setRingStyle(RING_STYLES[it]) },
         )
@@ -659,29 +666,38 @@ private fun VolumeContent() {
 
 private enum class SoundTab(val label: String) { CHIME("Chime"), VOLUME("Volume") }
 
-/** A segmented choice: tabs on the Sound page, the theme choice in Settings. */
+/**
+ * A segmented choice: tabs on the Sound page, the ring and theme choices in Settings. With
+ * more choices than fit side by side, they wrap onto further rows of [perRow].
+ */
 @Composable
-private fun Segments(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+private fun Segments(labels: List<String>, selected: Int, perRow: Int = labels.size, onSelect: (Int) -> Unit) {
     val p = LocalPalette.current
-    Row(
+    Column(
         Modifier.fillMaxWidth().border(1.dp, p.btnHover, ControlShape).padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        labels.forEachIndexed { i, label ->
-            val isSelected = i == selected
-            Box(
-                Modifier
-                    .weight(1f)
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .then(if (isSelected) Modifier.border(1.dp, p.fg, RoundedCornerShape(16.dp)) else Modifier)
-                    .selectable(isSelected, role = Role.Tab) { onSelect(i) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    label, Modifier.alpha(if (isSelected) 1f else 0.6f),
-                    color = p.fg, fontSize = 16.sp,
-                )
+        labels.indices.chunked(perRow).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                row.forEach { i ->
+                    val isSelected = i == selected
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .then(if (isSelected) Modifier.border(1.dp, p.fg, RoundedCornerShape(16.dp)) else Modifier)
+                            .selectable(isSelected, role = Role.Tab) { onSelect(i) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            labels[i], Modifier.alpha(if (isSelected) 1f else 0.6f),
+                            color = p.fg, fontSize = 16.sp,
+                        )
+                    }
+                }
+                // A short last row keeps its cells the same width as the rows above.
+                repeat(perRow - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }

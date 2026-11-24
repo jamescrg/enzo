@@ -43,3 +43,8 @@ The incense stick and its ash come from the photograph "Incense in India.jpg", C
 [photograph by Mathilde Langevin](https://unsplash.com/photos/B-qFF8W0hog) on Unsplash, used
 under the [Unsplash License](https://unsplash.com/license), by `extras/bake_incense_dish.py`.
 The smoke is drawn by the app.
+
+The labyrinth is the path of the one laid in the floor of Chartres cathedral around 1200. Its
+route was read from the diagram "Labyrinth 1 (from Nordisk familjebok).svg", public domain,
+from [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Labyrinth_1_(from_Nordisk_familjebok).svg),
+and the app draws it from that list of turns.
