@@ -31,3 +31,8 @@ Chime samples are CC0 (public domain) from [Freesound.org](https://freesound.org
 
 The optional brushstroke ring is "Enso.svg" by Kendrick Shaw, CC0, from
 [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Enso.svg).
+
+The beads ring is made from real wooden beads in the photograph "Rosary 2006-01-16.jpg" by
+Daniel Tibi, public domain, from
+[Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Rosary_2006-01-16.jpg). The script
+that cuts the beads out of the photo is `extras/bake_beads.py`.

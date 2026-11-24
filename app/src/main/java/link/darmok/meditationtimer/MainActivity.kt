@@ -100,6 +100,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Icon
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -188,7 +190,7 @@ fun TimerApp() {
     }
     val keepScreenOn by TimerEngine.keepScreenOn.collectAsStateWithLifecycle()
     val ringOnly by TimerEngine.ringOnly.collectAsStateWithLifecycle()
-    val brushRing by TimerEngine.brushRing.collectAsStateWithLifecycle()
+    val ringStyle by TimerEngine.ringStyle.collectAsStateWithLifecycle()
     val p = if (dark) Dark else Light
 
     val activity = LocalContext.current as ComponentActivity
@@ -325,7 +327,7 @@ fun TimerApp() {
                 val remainingMs = timer.remainingAt(now)
                 CountdownRing(
                     fraction = 1f - remainingMs / (timer.durationSec * 1000f),
-                    brush = brushRing,
+                    style = ringStyle,
                     modifier = Modifier.padding(vertical = 24.dp).fillMaxWidth(0.8f).widthIn(max = 320.dp),
                     // Tap the ring: pauses a running timer; otherwise opens the duration drawer
                     // (when paused, choosing a new duration starts the session over).
@@ -340,7 +342,7 @@ fun TimerApp() {
                         // Three-digit minutes need a smaller size to stay inside the ring, and the
                         // painted ring is much thicker than the plain one.
                         fontSize = when {
-                            brushRing -> if (text.length > 5) 50.sp else 62.sp
+                            ringStyle != RING_PLAIN -> if (text.length > 5) 50.sp else 62.sp
                             text.length > 5 -> 58.sp
                             else -> 72.sp
                         },
@@ -427,21 +429,28 @@ fun TimerApp() {
 private fun CountdownRing(
     fraction: Float,
     modifier: Modifier = Modifier,
-    brush: Boolean = false,
+    style: String = RING_PLAIN,
     onClickLabel: String? = null,
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val p = LocalPalette.current
+    val beadTiles = ImageBitmap.imageResource(R.drawable.beads)
     Box(
         modifier
             .aspectRatio(1f)
             // Drawn before the clip: the painted ring is larger than the tap target.
             .drawBehind {
                 val f = fraction.coerceIn(0f, 1f)
-                if (brush) {
-                    with(EnsoStroke) { drawEnso(f, ink = p.fg, track = p.btnBg) }
-                    return@drawBehind
+                when (style) {
+                    RING_ENSO -> {
+                        with(EnsoStroke) { drawEnso(f, ink = p.fg, track = p.btnBg) }
+                        return@drawBehind
+                    }
+                    RING_BEADS -> {
+                        with(Beads) { drawBeads(beadTiles, f, ink = p.fg, track = p.btnBg) }
+                        return@drawBehind
+                    }
                 }
                 val stroke = 14.dp.toPx()
                 val inset = Offset(stroke / 2, stroke / 2)
@@ -471,7 +480,7 @@ private fun OptionsContent() {
     val doNotDisturb by TimerEngine.doNotDisturb.collectAsStateWithLifecycle()
     val keepScreenOn by TimerEngine.keepScreenOn.collectAsStateWithLifecycle()
     val ringOnly by TimerEngine.ringOnly.collectAsStateWithLifecycle()
-    val brushRing by TimerEngine.brushRing.collectAsStateWithLifecycle()
+    val ringStyle by TimerEngine.ringStyle.collectAsStateWithLifecycle()
 
     // Re-checked on every return to the app, since access is granted in system settings.
     var dndAccess by remember { mutableStateOf(QuietMode.hasAccess(context)) }
@@ -502,7 +511,18 @@ private fun OptionsContent() {
         caption = "Hide the countdown too when the controls fade",
         onChange = TimerEngine::setRingOnly,
     )
-    SwitchRow("Brushstroke ring", brushRing, onChange = TimerEngine::setBrushRing)
+    // Ring: how the session's progress is drawn.
+    Column(
+        Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Ring", color = LocalPalette.current.fg, fontSize = 16.sp)
+        Segments(
+            labels = listOf("Plain", "Ensō", "Beads"),
+            selected = RING_STYLES.indexOf(ringStyle),
+            onSelect = { TimerEngine.setRingStyle(RING_STYLES[it]) },
+        )
+    }
     // Theme: follow the phone, or stay light or dark.
     Column(
         Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp),

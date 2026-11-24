@@ -55,8 +55,8 @@ object TimerEngine {
     val ringOnly: StateFlow<Boolean> = _ringOnly
 
     /** Show progress as a painted ensō (the default) instead of the plain ring. */
-    private val _brushRing = MutableStateFlow(true)
-    val brushRing: StateFlow<Boolean> = _brushRing
+    private val _ringStyle = MutableStateFlow(RING_ENSO)
+    val ringStyle: StateFlow<String> = _ringStyle
 
     private fun now() = SystemClock.elapsedRealtime()
 
@@ -134,8 +134,8 @@ object TimerEngine {
         save()
     }
 
-    fun setBrushRing(enabled: Boolean) {
-        _brushRing.value = enabled
+    fun setRingStyle(style: String) {
+        _ringStyle.value = if (style in RING_STYLES) style else RING_ENSO
         save()
     }
 
@@ -174,7 +174,7 @@ object TimerEngine {
             .put("doNotDisturb", _doNotDisturb.value)
             .put("keepScreenOn", _keepScreenOn.value)
             .put("ringOnly", _ringOnly.value)
-            .put("brushRing", _brushRing.value)
+            .put("ringStyle", _ringStyle.value)
             .put("timers", JSONArray().put(
                 JSONObject().put("duration", t.durationSec).put("repeat", t.repeat).put("chime", t.chime)
             ))
@@ -188,7 +188,9 @@ object TimerEngine {
         _doNotDisturb.value = json.optBoolean("doNotDisturb", false)
         _keepScreenOn.value = json.optBoolean("keepScreenOn", false)
         _ringOnly.value = json.optBoolean("ringOnly", false)
-        _brushRing.value = json.optBoolean("brushRing", true)
+        // Older saves only had an on/off switch for the brushstroke ring.
+        val oldStyle = if (json.optBoolean("brushRing", true)) RING_ENSO else RING_PLAIN
+        _ringStyle.value = json.optString("ringStyle", oldStyle).takeIf { it in RING_STYLES } ?: oldStyle
 
         // Only one timer on Android; if several were saved, keep the first.
         val t = json.optJSONArray("timers")?.optJSONObject(0) ?: JSONObject()
@@ -204,3 +206,9 @@ const val THEME_SYSTEM = "system"
 const val THEME_LIGHT = "light"
 const val THEME_DARK = "dark"
 val THEMES = listOf(THEME_SYSTEM, THEME_LIGHT, THEME_DARK)
+
+/** How progress is drawn: a plain ring, a painted ensō, or a round of beads. */
+const val RING_PLAIN = "plain"
+const val RING_ENSO = "enso"
+const val RING_BEADS = "beads"
+val RING_STYLES = listOf(RING_PLAIN, RING_ENSO, RING_BEADS)
