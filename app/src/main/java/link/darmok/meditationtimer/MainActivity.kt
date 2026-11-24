@@ -356,9 +356,12 @@ fun TimerApp() {
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // Only a paused session can be reset: before it starts there is nothing
+                        // to reset, and while it runs it has to be paused first.
                         AppButton(
                             "Reset", onClick = TimerEngine::reset,
                             modifier = Modifier.weight(1f).heightIn(min = 64.dp),
+                            enabled = timer.status == Status.PAUSED,
                             fontSize = 18.sp,
                         )
                         AppButton(
@@ -390,7 +393,7 @@ fun TimerApp() {
         // Sound (chime and volume) and the settings are full pages, drawn over the timer. They close only
         // with Done or back, so scrolling them can never dismiss them.
         FullPage(
-            visible = sheet == Sheet.SOUND, title = "Sound", onDone = { sheet = null },
+            visible = sheet == Sheet.SOUND, onDone = { sheet = null },
             extraButton = {
                 AppButton(
                     "Listen", onClick = TimerEngine::testChime,
@@ -405,7 +408,7 @@ fun TimerApp() {
                 SoundTab.VOLUME -> VolumeContent()
             }
         }
-        FullPage(visible = sheet == Sheet.SETTINGS, title = "Settings", onDone = { sheet = null }) {
+        FullPage(visible = sheet == Sheet.SETTINGS, onDone = { sheet = null }) {
             OptionsContent()
         }
     }
@@ -573,7 +576,7 @@ private fun SoundTabs(tab: SoundTab, onSelect: (SoundTab) -> Unit) {
 
 
 /**
- * A page covering the whole screen: a title, content that scrolls if it needs to, and buttons
+ * A page covering the whole screen: content that scrolls if it needs to, and buttons
  * fixed at the bottom. It fades in over the timer and closes only with Done or back, so
  * scrolling it never dismisses it.
  */
@@ -581,10 +584,9 @@ private fun SoundTabs(tab: SoundTab, onSelect: (SoundTab) -> Unit) {
 @OptIn(ExperimentalLayoutApi::class)
 private fun FullPage(
     visible: Boolean,
-    title: String,
     onDone: () -> Unit,
     extraButton: (@Composable RowScope.() -> Unit)? = null,
-    /** Stays put under the title while the content scrolls. */
+    /** Stays put at the top while the content scrolls. */
     header: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -606,10 +608,6 @@ private fun FullPage(
                 .padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                title, Modifier.padding(start = 16.dp),
-                color = p.fg, fontSize = 20.sp, fontWeight = FontWeight.Bold,
-            )
             header?.invoke()
             Column(
                 Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
@@ -687,15 +685,18 @@ private fun AppButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** A disabled button stays in place, muted, and ignores taps. */
+    enabled: Boolean = true,
     fontSize: androidx.compose.ui.unit.TextUnit = 16.sp,
 ) {
     val p = LocalPalette.current
     Box(
         modifier
+            .alpha(if (enabled) 1f else 0.35f)
             .heightIn(min = 48.dp)
             .clip(ControlShape)
             .border(1.dp, p.btnHover, ControlShape)
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {

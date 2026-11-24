@@ -28,21 +28,21 @@ data class Chime(
     val vibration: List<Long> = emptyList(),
 )
 
-// Ordered highest pitch to lowest
+// Bells and bowls first, roughly highest pitch to lowest, then wood, then the rest.
 val CHIMES = listOf(
     Chime("wind", "Tingsha", R.raw.tingsha, maxVolume = 0.2f),
     // Recorded about 20 dB hotter than the bowls; scaled down to sit level with them.
     Chime("chime", "Chime", R.raw.chime, maxVolume = 0.12f),
     // Both bowls are recorded about 13 dB hotter than the moktak; scaled down to sit level.
     // A small Tibetan bowl in E flat (about 605 Hz).
-    Chime("bell", "Bright Bowl (Tibetan, E♭)", R.raw.bowl_bright, maxVolume = 0.2f),
+    Chime("bell", "Bright Bowl", R.raw.bowl_bright, maxVolume = 0.2f),
+    // A large Indian bowl struck with a soft stick (about 155 Hz, with overtones above).
+    Chime("gong", "Deep Bowl", R.raw.bowl_deep, maxVolume = 0.2f),
     // A Japanese bronze keisu (about 247 Hz), recorded for this app and cleaned of room noise.
     // The harsh first instant of the strike is turned down. A rounder alternate take is kept,
     // unused, in extras/keisu_alt.ogg.
     Chime("keisu", "Keisu", R.raw.keisu, maxVolume = 0.12f),
-    // A large Indian bowl struck with a soft stick (about 155 Hz, with overtones above).
-    Chime("gong", "Deep Bowl", R.raw.bowl_deep, maxVolume = 0.2f),
-    Chime("moktak", "Moktak", R.raw.moktak),
+    Chime("moktak", "Moktak (long)", R.raw.moktak),
     Chime("moktak_short", "Moktak (short)", R.raw.moktak_short),
     // Two wooden blocks clapped together: one clap, repeated for three even beats. Stands in
     // for Zen clappers (taku).
