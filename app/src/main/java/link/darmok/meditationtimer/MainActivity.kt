@@ -165,7 +165,7 @@ private val LocalPalette = staticCompositionLocalOf { Dark }
 // ── Screen ─────────────────────────────────────────────────────────
 
 private val CardShape = RoundedCornerShape(20.dp)
-private val ControlShape = RoundedCornerShape(12.dp)
+private val ControlShape = RoundedCornerShape(20.dp)
 
 private enum class Sheet { DURATION, CHIME, SETTINGS }
 
@@ -268,6 +268,9 @@ fun TimerApp() {
                         while (true) {
                             val change = awaitPointerEvent(PointerEventPass.Initial)
                                 .changes.firstOrNull { it.id == down.id } ?: break
+                            // Once a swipe has opened settings, the rest of the gesture is ours, so
+                            // lifting the finger doesn't also count as a tap on whatever is under it.
+                            if (opened) change.consume()
                             if (!change.pressed) break
                             val moved = change.position - down.position
                             val mostlyUp = moved.y < -threshold && -moved.y > abs(moved.x) * 2
@@ -276,6 +279,7 @@ fun TimerApp() {
                             if (!opened && (mostlyRight || (mostlyUp && !scrollState.canScrollForward))) {
                                 opened = true
                                 sheet = Sheet.SETTINGS
+                                change.consume()
                             }
                         }
                     }
@@ -497,7 +501,7 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                         Modifier
                             .weight(1f)
                             .height(44.dp)
-                            .clip(RoundedCornerShape(9.dp))
+                            .clip(RoundedCornerShape(16.dp))
                             .background(if (selected) p.btnBg else Color.Transparent)
                             .selectable(selected, role = Role.Tab) { tab = t },
                         contentAlignment = Alignment.Center,
