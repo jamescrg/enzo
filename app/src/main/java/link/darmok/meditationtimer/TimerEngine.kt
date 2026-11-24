@@ -35,8 +35,9 @@ object TimerEngine {
     private val _timer = MutableStateFlow(TimerState())
     val timer: StateFlow<TimerState> = _timer
 
-    private val _darkTheme = MutableStateFlow(true)
-    val darkTheme: StateFlow<Boolean> = _darkTheme
+    /** "system" (follow the phone), "light" or "dark". */
+    private val _theme = MutableStateFlow(THEME_SYSTEM)
+    val theme: StateFlow<String> = _theme
 
     private val _chimeVolume = MutableStateFlow(0.8f)
     val chimeVolume: StateFlow<Float> = _chimeVolume
@@ -128,8 +129,8 @@ object TimerEngine {
         playChime(_timer.value.chime)
     }
 
-    fun toggleTheme() {
-        _darkTheme.value = !_darkTheme.value
+    fun setTheme(theme: String) {
+        _theme.value = if (theme in THEMES) theme else THEME_SYSTEM
         save()
     }
 
@@ -168,7 +169,7 @@ object TimerEngine {
         val t = _timer.value
         val json = JSONObject()
             .put("version", 3)
-            .put("theme", if (_darkTheme.value) "dark" else "light")
+            .put("theme", _theme.value)
             .put("chimeVolume", _chimeVolume.value.toDouble())
             .put("doNotDisturb", _doNotDisturb.value)
             .put("keepScreenOn", _keepScreenOn.value)
@@ -182,7 +183,7 @@ object TimerEngine {
 
     private fun load() {
         val json = runCatching { JSONObject(prefs.getString("json", null) ?: "{}") }.getOrDefault(JSONObject())
-        _darkTheme.value = json.optString("theme", "dark") != "light"
+        _theme.value = json.optString("theme", THEME_SYSTEM).takeIf { it in THEMES } ?: THEME_SYSTEM
         _chimeVolume.value = json.optDouble("chimeVolume", 0.8).toFloat().coerceIn(0f, 1f)
         _doNotDisturb.value = json.optBoolean("doNotDisturb", false)
         _keepScreenOn.value = json.optBoolean("keepScreenOn", false)
@@ -198,3 +199,8 @@ object TimerEngine {
         )
     }
 }
+
+const val THEME_SYSTEM = "system"
+const val THEME_LIGHT = "light"
+const val THEME_DARK = "dark"
+val THEMES = listOf(THEME_SYSTEM, THEME_LIGHT, THEME_DARK)

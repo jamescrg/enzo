@@ -31,6 +31,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -179,7 +180,12 @@ private enum class Sheet { DURATION, SOUND, SETTINGS }
 @OptIn(ExperimentalLayoutApi::class)
 fun TimerApp() {
     val timer by TimerEngine.timer.collectAsStateWithLifecycle()
-    val dark by TimerEngine.darkTheme.collectAsStateWithLifecycle()
+    val theme by TimerEngine.theme.collectAsStateWithLifecycle()
+    val dark = when (theme) {
+        THEME_DARK -> true
+        THEME_LIGHT -> false
+        else -> isSystemInDarkTheme()
+    }
     val keepScreenOn by TimerEngine.keepScreenOn.collectAsStateWithLifecycle()
     val ringOnly by TimerEngine.ringOnly.collectAsStateWithLifecycle()
     val brushRing by TimerEngine.brushRing.collectAsStateWithLifecycle()
@@ -401,7 +407,9 @@ fun TimerApp() {
                     fontSize = 18.sp,
                 )
             },
-            header = { SoundTabs(soundTab) { soundTab = it } },
+            header = {
+                Segments(SoundTab.entries.map { it.label }, soundTab.ordinal) { soundTab = SoundTab.entries[it] }
+            },
         ) {
             when (soundTab) {
                 SoundTab.CHIME -> ChimeList(selected = timer.chime)
@@ -459,7 +467,7 @@ private fun CountdownRing(
 @Composable
 private fun OptionsContent() {
     val context = LocalContext.current
-    val dark by TimerEngine.darkTheme.collectAsStateWithLifecycle()
+    val theme by TimerEngine.theme.collectAsStateWithLifecycle()
     val doNotDisturb by TimerEngine.doNotDisturb.collectAsStateWithLifecycle()
     val keepScreenOn by TimerEngine.keepScreenOn.collectAsStateWithLifecycle()
     val ringOnly by TimerEngine.ringOnly.collectAsStateWithLifecycle()
@@ -495,7 +503,18 @@ private fun OptionsContent() {
         onChange = TimerEngine::setRingOnly,
     )
     SwitchRow("Brushstroke ring", brushRing, onChange = TimerEngine::setBrushRing)
-    SwitchRow("Dark theme", dark, onChange = { TimerEngine.toggleTheme() })
+    // Theme: follow the phone, or stay light or dark.
+    Column(
+        Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Theme", color = LocalPalette.current.fg, fontSize = 16.sp)
+        Segments(
+            labels = listOf("System", "Light", "Dark"),
+            selected = THEMES.indexOf(theme),
+            onSelect = { TimerEngine.setTheme(THEMES[it]) },
+        )
+    }
 }
 
 /** The phone's media volume, and the chime's own level within it. */
@@ -546,34 +565,33 @@ private fun VolumeContent() {
 
 private enum class SoundTab(val label: String) { CHIME("Chime"), VOLUME("Volume") }
 
-/** Segmented tabs: one group on screen at a time. */
+/** A segmented choice: tabs on the Sound page, the theme choice in Settings. */
 @Composable
-private fun SoundTabs(tab: SoundTab, onSelect: (SoundTab) -> Unit) {
+private fun Segments(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     val p = LocalPalette.current
     Row(
         Modifier.fillMaxWidth().border(1.dp, p.btnHover, ControlShape).padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        SoundTab.entries.forEach { t ->
-            val selected = t == tab
+        labels.forEachIndexed { i, label ->
+            val isSelected = i == selected
             Box(
                 Modifier
                     .weight(1f)
                     .height(44.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .then(if (selected) Modifier.border(1.dp, p.fg, RoundedCornerShape(16.dp)) else Modifier)
-                    .selectable(selected, role = Role.Tab) { onSelect(t) },
+                    .then(if (isSelected) Modifier.border(1.dp, p.fg, RoundedCornerShape(16.dp)) else Modifier)
+                    .selectable(isSelected, role = Role.Tab) { onSelect(i) },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    t.label, Modifier.alpha(if (selected) 1f else 0.6f),
+                    label, Modifier.alpha(if (isSelected) 1f else 0.6f),
                     color = p.fg, fontSize = 16.sp,
                 )
             }
         }
     }
 }
-
 
 /**
  * A page covering the whole screen: content that scrolls if it needs to, and buttons
