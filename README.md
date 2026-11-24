@@ -36,3 +36,10 @@ The beads ring is made from real wooden beads in the photograph "Rosary 2006-01-
 Daniel Tibi, public domain, from
 [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Rosary_2006-01-16.jpg). The script
 that cuts the beads out of the photo is `extras/bake_beads.py`.
+
+The incense stick and its ash come from the photograph "Incense in India.jpg", CC0, from
+[Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Incense_in_India.jpg), cut out by
+`extras/bake_incense.py`. The dish it stands in is cut from a
+[photograph by Mathilde Langevin](https://unsplash.com/photos/B-qFF8W0hog) on Unsplash, used
+under the [Unsplash License](https://unsplash.com/license), by `extras/bake_incense_dish.py`.
+The smoke is drawn by the app.

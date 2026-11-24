@@ -92,7 +92,7 @@ object Beads {
     }
 
     /** Turns a grey tile into [color], lighter where the tile is above mid-grey and darker below. */
-    private fun shaded(color: Color, shading: Float): ColorFilter {
+    fun shaded(color: Color, shading: Float): ColorFilter {
         fun offset(channel: Float) = channel * 255f - shading * 127.5f
         return ColorFilter.colorMatrix(
             ColorMatrix(

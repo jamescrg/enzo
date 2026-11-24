@@ -31,6 +31,11 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawStyle
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -307,48 +312,71 @@ fun TimerApp() {
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // Settings: tap the three lines.
-                Box(
-                    Modifier
-                        .align(Alignment.End)
-                        .padding(top = 8.dp, end = 8.dp)
-                        .alpha(controlsAlpha)
-                        .size(64.dp) // generous touch target around a small icon
-                        .clip(CircleShape)
-                        .clickable(role = Role.Button, onClickLabel = "Settings") { sheet = Sheet.SETTINGS },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painterResource(R.drawable.ic_settings), contentDescription = null,
-                        modifier = Modifier.size(34.dp).alpha(0.8f), tint = p.fg,
-                    )
+                val remainingMs = timer.remainingAt(now)
+                val text = formatTime(remainingMs)
+                // Tap the time or the ring: pauses a running timer; otherwise opens the duration
+                // drawer (when paused, choosing a new duration starts the session over).
+                val timeLabel = if (running) "Pause" else "Set duration"
+                val onTime = { if (running) TimerEngine.pause() else sheet = Sheet.DURATION }
+                val incense = ringStyle == RING_INCENSE
+
+                // The top row: settings behind the three lines on the right and, with the
+                // incense, the time small on the left, leaving the scene below to the stick.
+                Box(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    if (incense) {
+                        Box(
+                            Modifier
+                                .align(Alignment.CenterStart)
+                                .padding(start = 8.dp)
+                                .clip(CardShape)
+                                .clickable(role = Role.Button, onClickLabel = timeLabel, onClick = onTime)
+                                .padding(horizontal = 15.dp, vertical = 8.dp),
+                        ) {
+                            val fontSize = if (text.length > 5) 32.sp else 40.sp
+                            // Smoke can drift behind the digits: a rim of background colour around
+                            // each one keeps it from touching their edges.
+                            CountdownText(
+                                text, fontSize, p.bg, Modifier.alpha(timeAlpha),
+                                drawStyle = Stroke(with(LocalDensity.current) { 5.dp.toPx() }, join = StrokeJoin.Round),
+                            )
+                            CountdownText(text, fontSize, p.fg, Modifier.alpha(timeAlpha))
+                        }
+                    }
+                    Box(
+                        Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 8.dp)
+                            .alpha(controlsAlpha)
+                            .size(64.dp) // generous touch target around a small icon
+                            .clip(CircleShape)
+                            .clickable(role = Role.Button, onClickLabel = "Settings") { sheet = Sheet.SETTINGS },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.ic_settings), contentDescription = null,
+                            modifier = Modifier.size(34.dp).alpha(0.8f), tint = p.fg,
+                        )
+                    }
                 }
 
-                val remainingMs = timer.remainingAt(now)
                 CountdownRing(
                     fraction = 1f - remainingMs / (timer.durationSec * 1000f),
                     style = ringStyle,
+                    running = running,
                     modifier = Modifier.padding(vertical = 24.dp).fillMaxWidth(0.8f).widthIn(max = 320.dp),
-                    // Tap the ring: pauses a running timer; otherwise opens the duration drawer
-                    // (when paused, choosing a new duration starts the session over).
-                    onClickLabel = if (running) "Pause" else "Set duration",
-                    onClick = { if (running) TimerEngine.pause() else sheet = Sheet.DURATION },
+                    onClickLabel = timeLabel,
+                    onClick = onTime,
                 ) {
-                    val text = formatTime(remainingMs)
-                    Text(
-                        text,
-                        Modifier.alpha(timeAlpha),
-                        color = p.fg,
+                    if (!incense) {
                         // Three-digit minutes need a smaller size to stay inside the ring, and the
-                        // painted ring is much thicker than the plain one.
-                        fontSize = when {
+                        // painted rings are much thicker than the plain one.
+                        val fontSize = when {
                             ringStyle != RING_PLAIN -> if (text.length > 5) 50.sp else 62.sp
                             text.length > 5 -> 58.sp
                             else -> 72.sp
-                        },
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace, maxLines = 1, softWrap = false,
-                    )
+                        }
+                        CountdownText(text, fontSize, p.fg, Modifier.alpha(timeAlpha))
+                    }
                 }
 
                 Column(Modifier.alpha(controlsAlpha), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -424,18 +452,57 @@ fun TimerApp() {
     }
 }
 
-/** Ring showing [fraction] of the session elapsed, filling clockwise from the top. */
+@Composable
+private fun CountdownText(
+    text: String,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    color: Color,
+    modifier: Modifier = Modifier,
+    drawStyle: DrawStyle? = null,
+) {
+    Text(
+        text, modifier,
+        color = color, fontSize = fontSize, fontWeight = FontWeight.Bold,
+        fontFamily = FontFamily.Monospace, maxLines = 1, softWrap = false,
+        style = LocalTextStyle.current.copy(drawStyle = drawStyle),
+    )
+}
+
+/**
+ * Shows [fraction] of the session elapsed, in the chosen [style]: a ring filling clockwise from
+ * the top, or a stick of incense burning down, which smokes while the timer is [running].
+ */
 @Composable
 private fun CountdownRing(
     fraction: Float,
     modifier: Modifier = Modifier,
     style: String = RING_PLAIN,
+    running: Boolean = false,
     onClickLabel: String? = null,
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val p = LocalPalette.current
     val beadTiles = ImageBitmap.imageResource(R.drawable.beads)
+    val incenseStrip = ImageBitmap.imageResource(R.drawable.incense)
+    val incenseDish = ImageBitmap.imageResource(R.drawable.incense_dish)
+    // Smoke thins away when the timer stops and gathers again when it starts. Its clock only
+    // runs while there is smoke to move, and only redraws the ring.
+    val smoke by animateFloatAsState(
+        if (style == RING_INCENSE && running && fraction < 1f) 1f else 0f, tween(2000), label = "smoke",
+    )
+    val smokeTime = remember { mutableFloatStateOf(0f) }
+    if (smoke > 0f) {
+        LaunchedEffect(Unit) {
+            var last = withFrameNanos { it }
+            while (true) {
+                withFrameNanos {
+                    smokeTime.floatValue += (it - last) / 1e9f
+                    last = it
+                }
+            }
+        }
+    }
     Box(
         modifier
             .aspectRatio(1f)
@@ -445,6 +512,12 @@ private fun CountdownRing(
                 when (style) {
                     RING_ENSO -> {
                         with(EnsoStroke) { drawEnso(f, ink = p.fg, track = p.btnBg) }
+                        return@drawBehind
+                    }
+                    RING_INCENSE -> {
+                        with(Incense) {
+                            drawIncense(incenseStrip, incenseDish, f, smokeTime.floatValue, smoke, ink = p.fg, paper = p.bg)
+                        }
                         return@drawBehind
                     }
                     RING_BEADS -> {
@@ -464,7 +537,8 @@ private fun CountdownRing(
                     )
                 }
             }
-            .clip(CircleShape)
+            // The incense scene fills the square; its time is shown above it instead.
+            .clip(if (style == RING_INCENSE) RoundedCornerShape(20.dp) else CircleShape)
             .clickable(enabled = onClick != null, role = Role.Button, onClickLabel = onClickLabel) { onClick?.invoke() },
         contentAlignment = Alignment.Center,
     ) { content() }
@@ -518,7 +592,7 @@ private fun OptionsContent() {
     ) {
         Text("Ring", color = LocalPalette.current.fg, fontSize = 16.sp)
         Segments(
-            labels = listOf("Plain", "Ensō", "Beads"),
+            labels = listOf("Plain", "Ensō", "Beads", "Incense"),
             selected = RING_STYLES.indexOf(ringStyle),
             onSelect = { TimerEngine.setRingStyle(RING_STYLES[it]) },
         )
