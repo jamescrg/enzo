@@ -18,13 +18,16 @@ Requires JDK 17 and the Android SDK (path in `local.properties`).
 
 ## Audio samples
 
-All chime samples are CC0 (public domain) from [Freesound.org](https://freesound.org):
+Chime samples are CC0 (public domain) from [Freesound.org](https://freesound.org), except where noted:
 
 - Tingsha: [steffcaffrey](https://freesound.org/people/steffcaffrey/sounds/435074/)
 - Chime: [LloydEvans09](https://freesound.org/people/LloydEvans09/sounds/185822/)
-- Singing Bowl: [surly](https://freesound.org/people/surly/sounds/91196/)
-- Singing Bowl 2: [inoshirodesign](https://freesound.org/people/inoshirodesign/sounds/271370/)
+- Bright Bowl: [mttvn](https://freesound.org/people/mttvn/sounds/535950/)
+- Keisu: our own recording of a Japanese bronze keisu (a spare take, not used by the app, is in `extras/`)
+- Deep Bowl: [Rimych](https://freesound.org/people/Rimych/sounds/616335/)
 - Moktak: composite from [jonopodmore](https://freesound.org/people/jonopodmore/sounds/607215/)
+- Clappers: [bergentroll](https://freesound.org/people/bergentroll/sounds/717371/)
+- Beep: generated (groups of three short 1 kHz tones), not a sample
 
 The optional brushstroke ring is "Enso.svg" by Kendrick Shaw, CC0, from
 [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Enso.svg).

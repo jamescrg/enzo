@@ -40,6 +40,9 @@ object EnsoStroke {
 
     /** Inner and outer edge of the ink every [STEP] degrees, as distance from the middle. */
     private const val STEP = 3
+
+    /** Straight segments used to draw the rounded front of the fill. */
+    private const val CAP_POINTS = 32
     private val INNER = floatArrayOf(50.2f, 50.4f, 50.4f, 50.5f, 50.6f, 50.6f, 50.8f, 50.9f, 51.0f, 51.1f, 51.2f, 51.1f, 51.2f, 51.5f, 51.5f, 51.6f, 51.6f, 51.8f, 51.9f, 52.0f, 52.1f, 52.2f, 52.2f, 52.4f, 52.5f, 52.5f, 52.6f, 52.8f, 52.8f, 52.9f, 53.0f, 53.1f, 53.2f, 53.2f, 53.5f, 53.5f, 53.6f, 53.8f, 53.8f, 53.9f, 54.1f, 54.1f, 54.1f, 54.2f, 54.4f, 54.5f, 54.6f, 54.6f, 54.6f, 54.5f, 54.4f, 54.2f, 56.6f, 56.4f, 56.1f, 56.0f, 56.0f, 55.9f, 55.9f, 56.0f, 56.1f, 56.1f, 56.2f, 56.4f, 56.6f, 56.8f, 57.0f, 57.4f, 58.0f, 48.4f, 47.4f, 45.8f, 45.2f, 45.2f, 45.5f, 45.5f, 45.8f, 45.9f, 46.0f, 46.0f, 46.1f, 46.2f, 46.4f, 46.6f, 46.6f, 46.8f, 46.8f, 46.9f, 47.0f, 47.1f, 47.2f, 47.2f, 47.4f, 47.5f, 47.6f, 47.8f, 47.9f, 47.9f, 48.0f, 48.1f, 48.2f, 48.2f, 48.5f, 48.5f, 48.6f, 48.8f, 48.9f, 49.0f, 49.0f, 49.0f, 49.2f, 49.4f, 49.4f, 49.5f, 49.6f, 49.8f, 49.9f, 49.9f, 50.0f, 50.1f)
     private val OUTER = floatArrayOf(61.4f, 61.5f, 61.4f, 61.2f, 61.4f, 61.4f, 61.4f, 61.5f, 61.4f, 61.4f, 61.2f, 61.2f, 61.4f, 61.5f, 61.4f, 61.2f, 61.1f, 61.2f, 61.4f, 61.4f, 61.4f, 61.2f, 61.2f, 61.2f, 61.1f, 61.2f, 61.4f, 61.4f, 61.2f, 61.1f, 61.1f, 61.1f, 61.2f, 61.4f, 61.4f, 61.2f, 61.1f, 61.1f, 61.2f, 61.4f, 61.2f, 61.2f, 61.2f, 61.1f, 61.2f, 61.4f, 61.4f, 61.2f, 61.1f, 61.2f, 61.4f, 61.2f, 61.2f, 61.2f, 61.4f, 61.5f, 61.4f, 60.9f, 59.9f, 60.0f, 60.0f, 60.2f, 60.4f, 60.6f, 60.9f, 61.1f, 61.4f, 61.6f, 58.1f, 54.9f, 57.6f, 60.6f, 61.4f, 61.4f, 61.4f, 61.4f, 61.5f, 61.4f, 61.5f, 61.5f, 61.5f, 61.4f, 61.4f, 61.4f, 61.5f, 61.5f, 61.5f, 61.5f, 61.5f, 61.4f, 61.5f, 61.4f, 61.5f, 61.5f, 61.5f, 61.5f, 61.5f, 61.4f, 61.5f, 61.5f, 61.5f, 61.4f, 61.5f, 61.5f, 61.5f, 61.5f, 61.5f, 61.5f, 61.5f, 61.5f, 61.5f, 61.5f, 61.5f, 61.5f, 61.5f, 61.5f, 61.5f, 61.4f, 61.4f, 61.4f)
 
@@ -79,24 +82,45 @@ object EnsoStroke {
             }
 
             // Everything below is in the artwork's own, untransformed coordinates, where the
-            // fill runs anticlockwise from the gap. Uncovered so far: a wedge from the gap to
-            // the current position, finished with a circle as wide as the stroke there, so the
-            // leading edge is a smooth semicircle with no seam.
+            // fill runs anticlockwise from the gap. Uncovered so far: a wedge, finished with a
+            // rounded front as wide as the stroke there, so the leading edge is a smooth
+            // semicircle with no seam. The front's foremost point is the current position, so
+            // the fill reaches the end of the head exactly as the session ends; the rounding
+            // flattens out over the last stretch (and grows in over the first) to fit.
             val tip = GAP - fraction * SWEEP
-            val inner = at(INNER, tip)
-            val outer = at(OUTER, tip)
+            val tipMid = (at(INNER, tip) + at(OUTER, tip)) / 2
+            val degToLen = tipMid * (Math.PI / 180).toFloat()
+            val done = fraction * SWEEP * degToLen
+            val left = (1 - fraction) * SWEEP * degToLen
+            val reach = minOf((at(OUTER, tip) - at(INNER, tip)) / 2, done, left)
+            val back = tip + reach / degToLen
+            val inner = at(INNER, back)
+            val outer = at(OUTER, back)
             val mid = (inner + outer) / 2
-            val rad = Math.toRadians(tip.toDouble())
-            val tipCenter = Offset(CENTER_X + mid * sin(rad).toFloat(), CENTER_Y - mid * cos(rad).toFloat())
+            val half = (outer - inner) / 2 + 0.5f
+            val rad = Math.toRadians(back.toDouble())
+            val sinBack = sin(rad).toFloat()
+            val cosBack = cos(rad).toFloat()
             val wedge = Path().apply {
                 moveTo(CENTER_X, CENTER_Y)
                 arcTo(
                     Rect(center = middle, radius = MAX_RADIUS * 1.5f),
-                    startAngleDegrees = GAP - 90f, sweepAngleDegrees = tip - GAP, forceMoveTo = false,
+                    startAngleDegrees = GAP - 90f, sweepAngleDegrees = back - GAP, forceMoveTo = false,
                 )
                 close()
             }
-            val cap = Path().apply { addOval(Rect(center = tipCenter, radius = (outer - inner) / 2 + 0.5f)) }
+            // Half an ellipse standing on the wedge's edge: [half] across the stroke, [reach] ahead.
+            val cap = Path().apply {
+                for (i in 0..CAP_POINTS) {
+                    val phi = Math.PI * (i.toDouble() / CAP_POINTS - 0.5)
+                    val across = mid + half * sin(phi).toFloat()
+                    val ahead = reach * cos(phi).toFloat()
+                    val x = CENTER_X + across * sinBack - ahead * cosBack
+                    val y = CENTER_Y - across * cosBack - ahead * sinBack
+                    if (i == 0) moveTo(x, y) else lineTo(x, y)
+                }
+                close()
+            }
             clipPath(Path.combine(PathOperation.Union, wedge, cap)) { drawPath(path, ink) }
         }
     }

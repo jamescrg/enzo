@@ -33,10 +33,21 @@ val CHIMES = listOf(
     Chime("wind", "Tingsha", R.raw.tingsha, maxVolume = 0.2f),
     // Recorded about 20 dB hotter than the bowls; scaled down to sit level with them.
     Chime("chime", "Chime", R.raw.chime, maxVolume = 0.12f),
-    Chime("bell", "Singing Bowl", R.raw.singing_bowl),
-    Chime("gong", "Singing Bowl 2", R.raw.deep_gong),
+    // Both bowls are recorded about 13 dB hotter than the moktak; scaled down to sit level.
+    // A small Tibetan bowl in E flat (about 605 Hz).
+    Chime("bell", "Bright Bowl (Tibetan, E♭)", R.raw.bowl_bright, maxVolume = 0.2f),
+    // A Japanese bronze keisu (about 247 Hz), recorded for this app and cleaned of room noise.
+    // The harsh first instant of the strike is turned down. A rounder alternate take is kept,
+    // unused, in extras/keisu_alt.ogg.
+    Chime("keisu", "Keisu", R.raw.keisu, maxVolume = 0.12f),
+    // A large Indian bowl struck with a soft stick (about 155 Hz, with overtones above).
+    Chime("gong", "Deep Bowl", R.raw.bowl_deep, maxVolume = 0.2f),
     Chime("moktak", "Moktak", R.raw.moktak),
     Chime("moktak_short", "Moktak (short)", R.raw.moktak_short),
+    // Two wooden blocks clapped together, twice; stands in for Zen clappers (taku).
+    Chime("clappers", "Clappers", R.raw.clappers),
+    // Generated: three short 1 kHz tones, four times over, like a kitchen timer.
+    Chime("beep", "Beep", R.raw.beep),
     Chime("vibrate", "Vibrate", res = null, vibration = listOf(0, 500, 250, 500)),
     Chime("vibrate_long", "Long vibrate", res = null, vibration = listOf(0, 4500)),
     // No sound and no vibration: the end is only shown on screen.

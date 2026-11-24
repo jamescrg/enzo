@@ -168,7 +168,7 @@ private val LocalPalette = staticCompositionLocalOf { Dark }
 private val CardShape = RoundedCornerShape(20.dp)
 private val ControlShape = RoundedCornerShape(12.dp)
 
-private enum class Sheet { DURATION, SETTINGS }
+private enum class Sheet { DURATION, CHIME, SETTINGS }
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
@@ -343,6 +343,7 @@ fun TimerApp() {
                     Column(
                         Modifier.fillMaxWidth().background(p.bgDim, CardShape).padding(8.dp),
                     ) {
+                        ValueRow("Chime", chimeById(timer.chime).label) { sheet = Sheet.CHIME }
                         SwitchRow("Repeat", timer.repeat, onChange = TimerEngine::setRepeat)
                     }
 
@@ -376,6 +377,7 @@ fun TimerApp() {
                 onChange = { TimerEngine.setDuration(it * 60) },
                 onDismiss = { sheet = null },
             )
+            Sheet.CHIME -> ChimeSheet(selected = timer.chime, onDismiss = { sheet = null })
             Sheet.SETTINGS -> SettingsSheet(onDismiss = { sheet = null })
             null -> {}
         }
@@ -517,22 +519,12 @@ private fun SettingsSheet(onDismiss: () -> Unit) {
                     SettingsTab.entries.forEach { t ->
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 when (t) {
-                    // Tapping a chime selects it and plays it, like a ringtone picker.
-                    SettingsTab.CHIME -> CHIMES.forEachIndexed { i, chime ->
-                        // Thin rule between the sounds and the silent vibrate options.
-                        if (chime.res == null && CHIMES.getOrNull(i - 1)?.res != null) {
-                            Box(
-                                Modifier
-                                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(p.btnHover),
-                            )
-                        }
-                        OptionRow(chime.label, selected = chime.id == timer.chime) {
-                            TimerEngine.setChime(chime.id)
-                            TimerEngine.testChime()
-                        }
+                    SettingsTab.CHIME -> {
+                        ChimeList(selected = timer.chime)
+                        AppButton(
+                            "Test chime", onClick = TimerEngine::testChime,
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                        )
                     }
 
                     SettingsTab.VOLUME -> Column(
@@ -674,6 +666,25 @@ private fun AppButton(
     }
 }
 
+/** A full-width "label … current value" row that opens somewhere to change the value. */
+@Composable
+private fun ValueRow(label: String, value: String, onClick: () -> Unit) {
+    val p = LocalPalette.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clip(ControlShape)
+            .clickable(role = Role.Button, onClickLabel = "Change", onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(label, Modifier.weight(1f), color = p.fg, fontSize = 16.sp)
+        Text(value, Modifier.alpha(0.7f), color = p.fg, fontSize = 16.sp, maxLines = 1)
+    }
+}
+
 /** A large single-choice row; the selected one is filled with the accent colour. */
 @Composable
 private fun OptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
@@ -692,6 +703,72 @@ private fun OptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
             label, color = if (selected) p.bgDim else p.fg, fontSize = 18.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
         )
+    }
+}
+
+// ── Chime ──────────────────────────────────────────────────────────
+
+/** Tapping a chime chooses it, silently; a separate Test button sounds the chosen one. */
+@Composable
+private fun ChimeList(selected: String) {
+    val p = LocalPalette.current
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        CHIMES.forEachIndexed { i, chime ->
+            // Thin rule between the sounds and the silent vibrate options.
+            if (chime.res == null && CHIMES.getOrNull(i - 1)?.res != null) {
+                Box(
+                    Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(p.btnHover),
+                )
+            }
+            OptionRow(chime.label, selected = chime.id == selected) { TimerEngine.setChime(chime.id) }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChimeSheet(selected: String, onDismiss: () -> Unit) {
+    val p = LocalPalette.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.statusBarsPadding(),
+        sheetState = sheetState,
+        containerColor = p.modalBg,
+        contentColor = p.fg,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = p.btnHover) },
+    ) {
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                "Chime", Modifier.padding(start = 16.dp),
+                color = p.fg, fontSize = 20.sp, fontWeight = FontWeight.Bold,
+            )
+            ChimeList(selected)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AppButton(
+                    "Test", onClick = TimerEngine::testChime,
+                    modifier = Modifier.weight(1f).heightIn(min = 56.dp),
+                    fontSize = 18.sp,
+                )
+                AppButton(
+                    "Done",
+                    onClick = { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() } },
+                    modifier = Modifier.weight(1f).heightIn(min = 56.dp),
+                    primary = true,
+                    fontSize = 18.sp,
+                )
+            }
+        }
     }
 }
 
