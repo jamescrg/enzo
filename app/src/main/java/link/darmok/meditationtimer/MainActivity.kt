@@ -319,8 +319,9 @@ fun TimerApp() {
                 // drawer (when paused, choosing a new duration starts the session over).
                 val timeLabel = if (running) "Pause" else "Set duration"
                 val onTime = { if (running) TimerEngine.pause() else sheet = Sheet.DURATION }
-                // The incense and the labyrinth fill their square, so their time sits above it.
-                val timeAbove = ringStyle == RING_INCENSE || ringStyle == RING_LABYRINTH
+                // The incense, the labyrinth and the candle fill their square, so their time
+                // sits above it.
+                val timeAbove = ringStyle == RING_INCENSE || ringStyle == RING_LABYRINTH || ringStyle == RING_CANDLE
 
                 // The top row: settings behind the three lines on the right and, for those
                 // styles, the time small on the left.
@@ -488,10 +489,14 @@ private fun CountdownRing(
     val beadTiles = ImageBitmap.imageResource(R.drawable.beads)
     val incenseStrip = ImageBitmap.imageResource(R.drawable.incense)
     val incenseDish = ImageBitmap.imageResource(R.drawable.incense_dish)
+    val candle = ImageBitmap.imageResource(R.drawable.candle)
+    val candleDish = ImageBitmap.imageResource(R.drawable.candle_dish)
+    val candleFlame = ImageBitmap.imageResource(R.drawable.candle_flame)
     // Smoke thins away when the timer stops and gathers again when it starts. Its clock only
     // runs while there is smoke to move, and only redraws the ring.
     val smoke by animateFloatAsState(
-        if (style == RING_INCENSE && running && fraction < 1f) 1f else 0f, tween(2000), label = "smoke",
+        if ((style == RING_INCENSE || style == RING_CANDLE) && running && fraction < 1f) 1f else 0f,
+        tween(2000), label = "smoke",
     )
     val smokeTime = remember { mutableFloatStateOf(0f) }
     if (smoke > 0f) {
@@ -526,6 +531,12 @@ private fun CountdownRing(
                         with(Beads) { drawBeads(beadTiles, f, ink = p.fg, track = p.btnBg) }
                         return@drawBehind
                     }
+                    RING_CANDLE -> {
+                        with(Candle) {
+                            drawCandle(candle, candleDish, candleFlame, f, smokeTime.floatValue, smoke, ink = p.fg, paper = p.bg)
+                        }
+                        return@drawBehind
+                    }
                     RING_LABYRINTH -> {
                         with(Labyrinth) { drawLabyrinth(f, ink = p.fg, track = p.btnHover) }
                         return@drawBehind
@@ -544,7 +555,7 @@ private fun CountdownRing(
                 }
             }
             // The incense scene fills the square; its time is shown above it instead.
-            .clip(if (style == RING_INCENSE) RoundedCornerShape(20.dp) else CircleShape)
+            .clip(if (style == RING_INCENSE || style == RING_CANDLE) RoundedCornerShape(20.dp) else CircleShape)
             .clickable(enabled = onClick != null, role = Role.Button, onClickLabel = onClickLabel) { onClick?.invoke() },
         contentAlignment = Alignment.Center,
     ) { content() }
@@ -587,18 +598,18 @@ private fun OptionsContent() {
         onChange = TimerEngine::setKeepScreenOn,
     )
     SwitchRow(
-        "Ring only", ringOnly,
-        caption = "Hide the countdown too when the controls fade",
+        "Hide countdown", ringOnly,
+        caption = "Fade the time out along with the controls",
         onChange = TimerEngine::setRingOnly,
     )
-    // Ring: how the session's progress is drawn.
+    // Style: how the session's progress is drawn.
     Column(
         Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Ring", color = LocalPalette.current.fg, fontSize = 16.sp)
+        Text("Style", color = LocalPalette.current.fg, fontSize = 16.sp)
         Segments(
-            labels = listOf("Plain", "Ensō", "Beads", "Incense", "Labyrinth"),
+            labels = listOf("Plain", "Ensō", "Beads", "Incense", "Labyrinth", "Candle"),
             perRow = 3,
             selected = RING_STYLES.indexOf(ringStyle),
             onSelect = { TimerEngine.setRingStyle(RING_STYLES[it]) },

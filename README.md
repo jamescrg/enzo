@@ -25,6 +25,7 @@ Chime samples are CC0 (public domain) from [Freesound.org](https://freesound.org
 - Bright Bowl: [mttvn](https://freesound.org/people/mttvn/sounds/535950/)
 - Keisu: our own recording of a Japanese bronze keisu (a spare take, not used by the app, is in `extras/`)
 - Deep Bowl: [Rimych](https://freesound.org/people/Rimych/sounds/616335/)
+- Chapel Bell: [JakobGille](https://freesound.org/people/JakobGille/sounds/693772/)
 - Moktak: composite from [jonopodmore](https://freesound.org/people/jonopodmore/sounds/607215/)
 - Clappers: [bergentroll](https://freesound.org/people/bergentroll/sounds/717371/)
 - Beep: generated (groups of three short 1 kHz tones), not a sample
@@ -39,12 +40,19 @@ that cuts the beads out of the photo is `extras/bake_beads.py`.
 
 The incense stick and its ash come from the photograph "Incense in India.jpg", CC0, from
 [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Incense_in_India.jpg), cut out by
-`extras/bake_incense.py`. The dish it stands in is cut from a
-[photograph by Mathilde Langevin](https://unsplash.com/photos/B-qFF8W0hog) on Unsplash, used
-under the [Unsplash License](https://unsplash.com/license), by `extras/bake_incense_dish.py`.
+`extras/bake_incense.py`. The cast iron bowl it stands in is cut from a product photograph by
+`extras/bake_incense_dish.py`; **its source and licence are not yet established**, so it must
+be cleared or replaced before the app is published.
 The smoke is drawn by the app.
 
 The labyrinth is the path of the one laid in the floor of Chartres cathedral around 1200. Its
 route was read from the diagram "Labyrinth 1 (from Nordisk familjebok).svg", public domain,
 from [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Labyrinth_1_(from_Nordisk_familjebok).svg),
 and the app draws it from that list of turns.
+
+The candle and its dish are cut from a
+[photograph by Tim Umphreys](https://unsplash.com/photos/An_j14lRl5k) on Unsplash, used under
+the [Unsplash License](https://unsplash.com/license), and its flame from "candle flame
+closeup" by lisafree54, CC0, on
+[Flickr](https://www.flickr.com/photos/136594255@N06/24857435811). `extras/bake_candle.py`
+cuts them out.
