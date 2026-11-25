@@ -207,7 +207,7 @@ const val THEME_LIGHT = "light"
 const val THEME_DARK = "dark"
 val THEMES = listOf(THEME_SYSTEM, THEME_LIGHT, THEME_DARK)
 
-/** How progress is drawn: a plain ring, a painted ensō, a round of beads, or a stick of incense. */
+/** How progress is drawn: a plain ring, a painted ensō, a round of beads, or one of the pictures. */
 const val RING_PLAIN = "plain"
 const val RING_ENSO = "enso"
 const val RING_BEADS = "beads"
@@ -215,6 +215,9 @@ const val RING_INCENSE = "incense"
 const val RING_LABYRINTH = "labyrinth"
 const val RING_CANDLE = "candle"
 const val RING_MOON = "moon"
+const val RING_HOURGLASS = "hourglass"
+const val RING_KALEIDOSCOPE = "kaleidoscope"
 val RING_STYLES = listOf(
     RING_PLAIN, RING_ENSO, RING_BEADS, RING_INCENSE, RING_LABYRINTH, RING_CANDLE, RING_MOON,
+    RING_HOURGLASS, RING_KALEIDOSCOPE,
 )

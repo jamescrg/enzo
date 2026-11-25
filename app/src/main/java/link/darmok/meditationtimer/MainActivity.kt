@@ -83,6 +83,10 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -293,6 +297,8 @@ fun TimerApp() {
 
     CompositionLocalProvider(LocalPalette provides p) {
         val scrollState = rememberScrollState()
+        // Where the ring is on the screen, for the picture that is drawn behind the screen instead of in it.
+        var ringBounds by remember { mutableStateOf(Rect.Zero) }
         Box(
             Modifier
                 .fillMaxSize()
@@ -331,6 +337,16 @@ fun TimerApp() {
                 },
             contentAlignment = Alignment.TopCenter,
         ) {
+            // The kaleidoscope lies behind everything, so that it can fill the screen.
+            if (ringStyle == RING_KALEIDOSCOPE) {
+                KaleidoscopeBackdrop(
+                    fraction = if (showFinished) 1f else 1f - timer.remainingAt(now) / (timer.durationSec * 1000f),
+                    running = running,
+                    ring = ringBounds,
+                    spread = { 1f - controlsAlpha },
+                    alpha = { ringAlpha.value },
+                )
+            }
             // Toolbar at the top, countdown in the middle, controls at the bottom in thumb reach.
             Column(
                 Modifier
@@ -398,7 +414,9 @@ fun TimerApp() {
                     alpha = { ringAlpha.value },
                     style = ringStyle,
                     running = running,
-                    modifier = Modifier.padding(vertical = 24.dp).fillMaxWidth(0.8f).widthIn(max = 320.dp),
+                    modifier = Modifier
+                        .padding(vertical = 24.dp).fillMaxWidth(0.8f).widthIn(max = 320.dp)
+                        .onGloballyPositioned { ringBounds = it.boundsInRoot() },
                     onClickLabel = timeLabel,
                     onClick = onTime,
                 ) {
@@ -514,6 +532,9 @@ private fun CountdownText(
     )
 }
 
+/** The styles with something in them that moves while the timer runs. */
+private val MOVING_STYLES = setOf(RING_INCENSE, RING_CANDLE, RING_HOURGLASS)
+
 /**
  * Shows [fraction] of the session elapsed, in the chosen [style]: a ring filling clockwise from
  * the top, or a stick of incense burning down, which smokes while the timer is [running].
@@ -539,10 +560,13 @@ private fun CountdownRing(
     val candleDish = ImageBitmap.imageResource(R.drawable.candle_dish)
     val candleFlame = ImageBitmap.imageResource(R.drawable.candle_flame)
     val moon = ImageBitmap.imageResource(R.drawable.moon)
-    // Smoke thins away when the timer stops and gathers again when it starts. Its clock only
-    // runs while there is smoke to move, and only redraws the ring.
+    val hourglass = ImageBitmap.imageResource(R.drawable.hourglass)
+    val hourglassSand = ImageBitmap.imageResource(R.drawable.hourglass_sand)
+    // Smoke thins away when the timer stops and gathers again when it starts, and so do the
+    // hourglass's falling sand. Its clock only runs while there is
+    // something to move, and only redraws the ring.
     val smoke by animateFloatAsState(
-        if ((style == RING_INCENSE || style == RING_CANDLE) && running && fraction < 1f) 1f else 0f,
+        if (style in MOVING_STYLES && running && fraction < 1f) 1f else 0f,
         tween(2000), label = "smoke",
     )
     val smokeTime = remember { mutableFloatStateOf(0f) }
@@ -583,6 +607,10 @@ private fun CountdownRing(
                     }
                     RING_LABYRINTH -> with(Labyrinth) { drawLabyrinth(f, ink = p.fg, track = p.btnHover) }
                     RING_MOON -> with(Moon) { drawMoon(moon, f, lit = p.moon, glow = p.moonGlow, ink = p.fg, paper = p.bg) }
+                    RING_HOURGLASS -> with(Hourglass) {
+                        drawHourglass(hourglass, hourglassSand, f, smokeTime.floatValue, smoke, ink = p.fg, paper = p.bg, wood = p.wood)
+                    }
+                    RING_KALEIDOSCOPE -> {}       // drawn behind the whole screen: see KaleidoscopeBackdrop
                     else -> {
                         val stroke = 14.dp.toPx()
                         val inset = Offset(stroke / 2, stroke / 2)
@@ -599,11 +627,46 @@ private fun CountdownRing(
                 }
                 if (solid < 1f) canvas.restore()
             }
-            // The incense scene fills the square; its time is shown above it instead.
-            .clip(if (style == RING_INCENSE || style == RING_CANDLE) RoundedCornerShape(20.dp) else CircleShape)
+            // The scenes fill the square; their time is shown above them instead.
+            .clip(if (style in MOVING_STYLES) RoundedCornerShape(20.dp) else CircleShape)
             .clickable(enabled = onClick != null, role = Role.Button, onClickLabel = onClickLabel) { onClick?.invoke() },
         contentAlignment = Alignment.Center,
     ) { content() }
+}
+
+/**
+ * The kaleidoscope, behind the whole screen and centred on the [ring], with [fraction] of the
+ * session gone. [spread] takes it from sitting in the ring (0) to filling the screen (1), and
+ * [alpha] is how solidly it is drawn; both are read only when drawing. Its shards drift while
+ * the timer is [running], and slowly enough that half the screen's pictures are plenty.
+ */
+@Composable
+private fun KaleidoscopeBackdrop(fraction: Float, running: Boolean, ring: Rect, spread: () -> Float, alpha: () -> Float) {
+    val p = LocalPalette.current
+    val colors = remember(p) { listOf(p.fg, p.wood, p.moonGlow) }
+    val time = remember { mutableFloatStateOf(0f) }
+    if (running && fraction < 1f) {
+        LaunchedEffect(Unit) {
+            var shown = withFrameNanos { it }
+            while (true) {
+                withFrameNanos {
+                    if (it - shown >= 30_000_000L) {
+                        time.floatValue += (it - shown) / 1e9f
+                        shown = it
+                    }
+                }
+            }
+        }
+    }
+    Canvas(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha() }) {
+        if (ring.isEmpty) return@Canvas
+        with(Kaleidoscope) {
+            drawKaleidoscope(
+                ring.center, ring.minDimension, spread(), fraction, time.floatValue,
+                colors, ink = p.fg, track = p.btnBg,
+            )
+        }
+    }
 }
 
 // ── Settings ───────────────────────────────────────────────────────
@@ -654,7 +717,7 @@ private fun OptionsContent() {
     ) {
         Text("Style", color = LocalPalette.current.fg, fontSize = 16.sp)
         Segments(
-            labels = listOf("Plain", "Ensō", "Beads", "Incense", "Labyrinth", "Candle", "Moon"),
+            labels = listOf("Plain", "Ensō", "Beads", "Incense", "Labyrinth", "Candle", "Moon", "Hourglass", "Kaleidoscope"),
             perRow = 3,
             selected = RING_STYLES.indexOf(ringStyle),
             onSelect = { TimerEngine.setRingStyle(RING_STYLES[it]) },
@@ -748,7 +811,9 @@ private fun Segments(labels: List<String>, selected: Int, perRow: Int = labels.s
                     ) {
                         Text(
                             labels[i], Modifier.alpha(if (isSelected) 1f else 0.6f),
-                            color = p.fg, fontSize = 16.sp,
+                            // A long word is set a little smaller so it stays on one line.
+                            color = p.fg, fontSize = if (labels[i].length > 10) 14.sp else 16.sp,
+                            maxLines = 1, softWrap = false,
                         )
                     }
                 }

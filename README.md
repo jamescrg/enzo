@@ -61,3 +61,11 @@ The moon is the photograph "Moon nearside LRO.jpg" by NASA/GSFC/Arizona State Un
 public domain, from
 [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Moon_nearside_LRO.jpg), cut out by
 `extras/bake_moon.py`; the app puts the phase's light and shadow on it.
+
+The hourglass is cut from a
+[photograph by Rocco Stoppoloni](https://unsplash.com/photos/8lvbTjLai34) on Unsplash, used
+under the [Unsplash License](https://unsplash.com/license). `extras/bake_hourglass.py` takes
+the empty glass from it, as the light it catches, and a tile of its sand; the app pours the
+sand.
+
+The kaleidoscope is drawn by the app.
