@@ -1,5 +1,8 @@
 package link.darmok.meditationtimer
 
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -8,7 +11,6 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -86,6 +88,15 @@ object Incense {
 
     private const val TAU = 2 * PI.toFloat()
     private val path = Path()
+    private val end = Path()
+
+    /** Makes [end] an upright bar whose top corners are rounded by [radius]. */
+    private fun roundedTop(left: Float, top: Float, right: Float, bottom: Float, radius: Float) {
+        end.rewind()
+        end.addRoundRect(
+            RoundRect(left, top, right, bottom, topLeftCornerRadius = CornerRadius(radius), topRightCornerRadius = CornerRadius(radius))
+        )
+    }
     private val centres = FloatArray(SMOKE_POINTS + 1)
     private val halves = FloatArray(SMOKE_POINTS + 1)
 
@@ -128,7 +139,10 @@ object Incense {
             // the grain stays put as the top burns away.
             val tile = (width * BODY_ROWS / strip.width).roundToInt()
             val stick = Beads.shaded(lerp(paper, ink, 0.6f), 0.35f)
-            clipRect(top = tipY, bottom = foot.y) {
+            // A stick that has not been lit ends in a rounded tip, as it was rolled; once it is
+            // burning it ends flat, at the ember.
+            roundedTop(left.toFloat(), tipY, left + width, foot.y, if (f <= 0f) width / 2 else 0f)
+            clipPath(end) {
                 var y = foot.y.roundToInt()
                 while (y > tipY) {
                     y -= tile
@@ -144,13 +158,17 @@ object Incense {
             if (f > 0f && f < 1f) {
                 // Ash still standing on the burning end.
                 if (standing >= 1f) {
-                    drawImage(
-                        strip,
-                        srcOffset = IntOffset(0, 0), srcSize = IntSize(strip.width, ASH_ROWS),
-                        dstOffset = IntOffset(left, (tipY - standing).roundToInt()),
-                        dstSize = IntSize(width.toInt(), standing.roundToInt()),
-                        colorFilter = Beads.shaded(ashColor, 0.25f), filterQuality = FilterQuality.High,
-                    )
+                    // Its end is rounded where the last piece broke away.
+                    roundedTop(left.toFloat(), tipY - standing, left + width, tipY, min(width / 2, standing))
+                    clipPath(end) {
+                        drawImage(
+                            strip,
+                            srcOffset = IntOffset(0, 0), srcSize = IntSize(strip.width, ASH_ROWS),
+                            dstOffset = IntOffset(left, (tipY - standing).roundToInt()),
+                            dstSize = IntSize(width.toInt(), standing.roundToInt()),
+                            colorFilter = Beads.shaded(ashColor, 0.25f), filterQuality = FilterQuality.High,
+                        )
+                    }
                 }
                 // The ember: a bright band where the stick meets the ash, with a glow that breathes.
                 val breath = 0.8f + 0.2f * sin(time * 2.1f) * sin(time * 1.3f + 1f)

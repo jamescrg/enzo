@@ -215,9 +215,17 @@ const val RING_INCENSE = "incense"
 const val RING_LABYRINTH = "labyrinth"
 const val RING_CANDLE = "candle"
 const val RING_MOON = "moon"
+
+/**
+ * Shelved: the hourglass is not offered for now. Its drawing (Hourglass.kt), its pictures
+ * (res/drawable-nodpi/hourglass*.png) and their bake script are kept; to bring it back, add
+ * this to [RING_STYLES], a name for it to the Style list in Settings, and a case for it where
+ * the styles are drawn.
+ */
 const val RING_HOURGLASS = "hourglass"
+
 const val RING_KALEIDOSCOPE = "kaleidoscope"
 val RING_STYLES = listOf(
     RING_PLAIN, RING_ENSO, RING_BEADS, RING_INCENSE, RING_LABYRINTH, RING_CANDLE, RING_MOON,
-    RING_HOURGLASS, RING_KALEIDOSCOPE,
+    RING_KALEIDOSCOPE,
 )

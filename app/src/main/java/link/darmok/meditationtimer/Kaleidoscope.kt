@@ -2,6 +2,7 @@ package link.darmok.meditationtimer
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -22,8 +23,8 @@ import kotlin.random.Random
  * The kaleidoscope: a session as a pattern drawing in to a point. A few pale shards drift and
  * turn, slowly, and mirrors set round the middle make of them a pattern with six sides that is
  * never twice the same. Before the session it sits in a ring, like the other pictures. When
- * the timer runs and the controls fade it opens out to fill the whole screen, and from then on
- * it draws steadily in, the dark closing round it, until at the end it is a point and is gone.
+ * the timer runs and the controls fade it moves to the middle of the screen and opens out to
+ * fill it, and from then on it draws steadily in, the dark closing round it, until at the end it is a point and is gone.
  * Whenever the controls come back it shows in its ring again, as much smaller as the session
  * is further on.
  *
@@ -70,21 +71,23 @@ object Kaleidoscope {
     private val window = Path()
 
     /**
-     * Draws the pattern about [centre] with [fraction] of the session gone. At rest it fills a
-     * ring in a box [box] wide, drawn in [track]; [spread] takes it from there (0) to filling
-     * everything there is to draw on (1). The shards take their colours in turn from [colors];
+     * Draws the pattern with [fraction] of the session gone. At rest it fills a ring about
+     * [ring] in a box [box] wide, drawn in [track]; [spread] takes it from there (0) to the
+     * middle of everything there is to draw on, and filling it (1). The shards take their colours in turn from [colors];
      * [time] is in seconds and only moves them.
      */
     fun DrawScope.drawKaleidoscope(
-        centre: Offset, box: Float, spread: Float, fraction: Float, time: Float,
+        ring: Offset, box: Float, spread: Float, fraction: Float, time: Float,
         colors: List<Color>, ink: Color, track: Color,
     ) {
         val f = fraction.coerceIn(0f, 1f)
         val rest = box * REACH
+        val wide = spread.coerceIn(0f, 1f)
+        val centre = ring + (size.center - ring) * wide
         // Far enough to reach the furthest corner.
         val far = hypot(max(centre.x, size.width - centre.x), max(centre.y, size.height - centre.y))
-        val reach = (rest + (far - rest) * spread.coerceIn(0f, 1f)) * (1 - f)
-        if (spread < 1f) drawCircle(track.copy(alpha = track.alpha * (1 - spread)), rest, centre, style = Stroke(1.5.dp.toPx()))
+        val reach = (rest + (far - rest) * wide) * (1 - f)
+        if (wide < 1f) drawCircle(track.copy(alpha = track.alpha * (1 - wide)), rest, ring, style = Stroke(1.5.dp.toPx()))
         if (reach < 0.5f) return
         val open = reach
 
