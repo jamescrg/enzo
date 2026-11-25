@@ -65,11 +65,15 @@ object Incense {
     private const val DISH_SHADING = 0.26f
 
     /** The stick's length, as a part of the box. It is solid incense and burns to the holder. */
-    private const val LENGTH = 0.74f
+    private const val LENGTH = 0.67f
 
     /** Ash breaks off in pieces this long, in stick widths, leaving at least [ASH_KEPT] of one standing. */
     private const val ASH_PIECE = 4f
     private const val ASH_KEPT = 0.35f
+
+    /** The ember is the text colour warmed this far towards the orange of a live coal. */
+    private const val EMBER_WARMTH = 0.15f
+    private val COAL = Color(0xFFE87A3E)
 
     /** How far the smoke climbs before it has thinned to nothing, as a part of the box. */
     private const val SMOKE_HEIGHT = 0.5f
@@ -152,17 +156,18 @@ object Incense {
                 val breath = 0.8f + 0.2f * sin(time * 2.1f) * sin(time * 1.3f + 1f)
                 val glow = (0.45f + 0.55f * smoke) * breath
                 val ember = Offset(foot.x, tipY)
+                val warm = lerp(ink, COAL, EMBER_WARMTH)
                 // Its light in the air around it: a wide faint halo and a closer, stronger one.
                 for ((radius, strength) in listOf(width * 9f to 0.10f, width * 3.6f to 0.5f)) {
                     drawCircle(
                         Brush.radialGradient(
-                            0f to ink.copy(alpha = strength * glow), 1f to ink.copy(alpha = 0f),
+                            0f to warm.copy(alpha = strength * glow), 1f to warm.copy(alpha = 0f),
                             center = ember, radius = radius,
                         ),
                         radius = radius, center = ember,
                     )
                 }
-                drawRect(ink, Offset(left.toFloat(), tipY - width * 0.35f), Size(width, width * 0.7f))
+                drawRect(warm, Offset(left.toFloat(), tipY - width * 0.35f), Size(width, width * 0.7f))
             }
         }
 
