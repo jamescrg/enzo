@@ -1,4 +1,4 @@
-# Enzo (Android)
+# Tacet (Android)
 
 A meditation timer: Android port of the desktop [Meditation Timer](../Meditation%20Timer): a single timer with
 duration presets or custom (1–180 min), chime sounds, vibrate-only or silent, repeat, system and chime volume,
