@@ -56,3 +56,8 @@ the [Unsplash License](https://unsplash.com/license), and its flame from "candle
 closeup" by lisafree54, CC0, on
 [Flickr](https://www.flickr.com/photos/136594255@N06/24857435811). `extras/bake_candle.py`
 cuts them out.
+
+The moon is the photograph "Moon nearside LRO.jpg" by NASA/GSFC/Arizona State University,
+public domain, from
+[Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Moon_nearside_LRO.jpg), cut out by
+`extras/bake_moon.py`; the app puts the phase's light and shadow on it.

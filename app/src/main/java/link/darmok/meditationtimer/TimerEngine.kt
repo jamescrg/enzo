@@ -214,4 +214,7 @@ const val RING_BEADS = "beads"
 const val RING_INCENSE = "incense"
 const val RING_LABYRINTH = "labyrinth"
 const val RING_CANDLE = "candle"
-val RING_STYLES = listOf(RING_PLAIN, RING_ENSO, RING_BEADS, RING_INCENSE, RING_LABYRINTH, RING_CANDLE)
+const val RING_MOON = "moon"
+val RING_STYLES = listOf(
+    RING_PLAIN, RING_ENSO, RING_BEADS, RING_INCENSE, RING_LABYRINTH, RING_CANDLE, RING_MOON,
+)

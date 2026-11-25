@@ -57,7 +57,7 @@ object Candle {
 
     /** The wick's and the flame's height, as parts of the box. */
     private const val WICK = 0.014f
-    private const val FLAME = 0.17f
+    private const val FLAME = 0.14f
 
     /**
      * How far the candle and dish stand out from the background, from 0 (not at all) to 1 (as
@@ -173,13 +173,37 @@ object Candle {
             }
             rotate(lean, foot) {
                 scale(wide * lit, tall * lit, foot) {
+                    // The flame's outline is the photograph's. Inside it, it is one even
+                    // light down to its foot, which thins until it can be seen through, most of
+                    // all around the wick.
+                    val flameTop = foot.y - height
+                    val bounds = Rect(foot.x - flameWidth / 2, flameTop, foot.x + flameWidth / 2, foot.y)
+                    val canvas = drawContext.canvas
+                    canvas.saveLayer(bounds, layer)
                     drawImage(
                         flame,
-                        dstOffset = IntOffset((foot.x - flameWidth / 2).roundToInt(), (foot.y - height).roundToInt()),
+                        dstOffset = IntOffset(bounds.left.roundToInt(), flameTop.roundToInt()),
                         dstSize = IntSize(flameWidth.roundToInt(), height.roundToInt()),
-                        alpha = lit.coerceAtMost(1f), colorFilter = ColorFilter.tint(ink),
-                        filterQuality = FilterQuality.High,
+                        alpha = lit.coerceAtMost(1f), filterQuality = FilterQuality.High,
                     )
+                    drawRect(
+                        Brush.verticalGradient(
+                            0.6f to ink,
+                            1f to ink.copy(alpha = 0.12f),
+                            startY = flameTop, endY = foot.y,
+                        ),
+                        topLeft = bounds.topLeft, size = bounds.size, blendMode = BlendMode.SrcIn,
+                    )
+                    // The dark heart of the flame, around the wick, where nothing is burning yet.
+                    val heartOfWick = Offset(foot.x, foot.y - height * 0.16f)
+                    drawCircle(
+                        Brush.radialGradient(
+                            0f to Color.Black.copy(alpha = 0.6f), 1f to Color.Transparent,
+                            center = heartOfWick, radius = height * 0.17f,
+                        ),
+                        radius = height * 0.17f, center = heartOfWick, blendMode = BlendMode.DstOut,
+                    )
+                    canvas.restore()
                 }
             }
         }

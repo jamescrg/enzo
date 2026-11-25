@@ -25,6 +25,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -77,15 +78,11 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -105,6 +102,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.imageResource
@@ -159,6 +158,13 @@ class Palette(
     val modalBg: Color,
     val modalBorder: Color,
     val inputBg: Color,
+    /** Outlines of cards, buttons and controls. */
+    val border: Color,
+    /** The one touch of colour: a muted sandalwood for counted beads. */
+    val wood: Color,
+    /** The lit side of the moon, and the faintly golden light in the air around it. */
+    val moon: Color,
+    val moonGlow: Color,
 )
 
 /** Everforest Dark */
@@ -166,6 +172,8 @@ private val Dark = Palette(
     bg = Color(0xFF2D353B), bgDim = Color(0xFF232A2E), fg = Color(0xFFD3C6AA),
     btnBg = Color(0xFF3D484D), btnHover = Color(0xFF475258),
     modalBg = Color(0xFF343F44), modalBorder = Color(0xFF475258), inputBg = Color(0xFF2D353B),
+    border = Color(0xFF505C60),
+    wood = Color(0xFF998670), moon = Color(0xFFC9BD9F), moonGlow = Color(0xFFDCC384),
 )
 
 /** The dark palette turned inside out: its ink is the paper, and its paper is the ink. */
@@ -173,6 +181,8 @@ private val Light = Palette(
     bg = Color(0xFFD3C6AA), bgDim = Color(0xFFDDCFB1), fg = Color(0xFF2D353B),
     btnBg = Color(0xFFC3B89F), btnHover = Color(0xFFB9AF99),
     modalBg = Color(0xFFCCC0A5), modalBorder = Color(0xFFB9AF99), inputBg = Color(0xFFD3C6AA),
+    border = Color(0xFFADA38E),
+    wood = Color(0xFF745F4C), moon = Color(0xFFEDE3C9), moonGlow = Color(0xFFF6E8BB),
 )
 
 private val LocalPalette = staticCompositionLocalOf { Dark }
@@ -223,6 +233,27 @@ fun TimerApp() {
     DisposableEffect(keepScreenOn && running) {
         view.keepScreenOn = keepScreenOn && running
         onDispose { view.keepScreenOn = false }
+    }
+
+    // When a repeating timer goes straight into its next round, the finished picture fades away
+    // and the fresh one fades in, rather than one snapping to the other. A round has repeated
+    // when the deadline moves while the timer stays running.
+    val lastSeen = remember { arrayOf(timer) }
+    val repeatedAt = remember(timer.status, timer.endAt) {
+        val before = lastSeen[0]
+        lastSeen[0] = timer
+        if (before.status == Status.RUNNING && running && before.endAt != timer.endAt) timer.endAt else null
+    }
+    val ringAlpha = remember { Animatable(1f) }
+    var showFinished by remember(repeatedAt) { mutableStateOf(repeatedAt != null) }
+    LaunchedEffect(repeatedAt) {
+        if (repeatedAt == null) {
+            ringAlpha.snapTo(1f)
+        } else {
+            ringAlpha.animateTo(0f, tween(1500))
+            showFinished = false
+            ringAlpha.animateTo(1f, tween(1500))
+        }
     }
 
     var sheet by remember { mutableStateOf<Sheet?>(null) }
@@ -319,9 +350,9 @@ fun TimerApp() {
                 // drawer (when paused, choosing a new duration starts the session over).
                 val timeLabel = if (running) "Pause" else "Set duration"
                 val onTime = { if (running) TimerEngine.pause() else sheet = Sheet.DURATION }
-                // The incense, the labyrinth and the candle fill their square, so their time
-                // sits above it.
-                val timeAbove = ringStyle == RING_INCENSE || ringStyle == RING_LABYRINTH || ringStyle == RING_CANDLE
+                // The pictures that fill their square have their time above them; only the
+                // rings have room for it inside.
+                val timeAbove = ringStyle != RING_PLAIN && ringStyle != RING_ENSO && ringStyle != RING_BEADS
 
                 // The top row: settings behind the three lines on the right and, for those
                 // styles, the time small on the left.
@@ -363,7 +394,8 @@ fun TimerApp() {
                 }
 
                 CountdownRing(
-                    fraction = 1f - remainingMs / (timer.durationSec * 1000f),
+                    fraction = if (showFinished) 1f else 1f - remainingMs / (timer.durationSec * 1000f),
+                    alpha = { ringAlpha.value },
                     style = ringStyle,
                     running = running,
                     modifier = Modifier.padding(vertical = 24.dp).fillMaxWidth(0.8f).widthIn(max = 320.dp),
@@ -384,13 +416,13 @@ fun TimerApp() {
 
                 Column(Modifier.alpha(controlsAlpha), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     // Each setting on its own card.
-                    Box(Modifier.fillMaxWidth().border(1.dp, p.btnHover, CardShape).padding(8.dp)) {
+                    Box(Modifier.fillMaxWidth().border(1.dp, p.border, CardShape).padding(8.dp)) {
                         ValueRow("Sound", chimeById(timer.chime).label) {
                             soundTab = SoundTab.CHIME
                             sheet = Sheet.SOUND
                         }
                     }
-                    Box(Modifier.fillMaxWidth().border(1.dp, p.btnHover, CardShape).padding(8.dp)) {
+                    Box(Modifier.fillMaxWidth().border(1.dp, p.border, CardShape).padding(8.dp)) {
                         SwitchRow("Repeat", timer.repeat, onChange = TimerEngine::setRepeat)
                     }
 
@@ -422,19 +454,26 @@ fun TimerApp() {
             }
         }
 
-        when (sheet) {
-            Sheet.DURATION -> DurationSheet(
-                initialMinutes = minutes,
-                // Fixed when the sheet opens: the first change resets the timer to idle.
-                restartsSession = remember { timer.status == Status.PAUSED },
-                onChange = { TimerEngine.setDuration(it * 60) },
-                onDismiss = { sheet = null },
-            )
-            else -> {}
+        // Duration, sound (chime and volume) and the settings are full pages, drawn over the
+        // timer. They close only with Done or back, so scrolling them can never dismiss them.
+        FullPage(
+            visible = sheet == Sheet.DURATION, onDone = { sheet = null },
+            header = {
+                // Fixed when the page opens: the first change resets the timer to idle.
+                val restartsSession = remember { timer.status == Status.PAUSED }
+                Column(Modifier.padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Duration", color = p.fg, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    if (restartsSession) {
+                        Text(
+                            "Changing the duration restarts the session",
+                            Modifier.alpha(0.7f), color = p.fg, fontSize = 14.sp,
+                        )
+                    }
+                }
+            },
+        ) {
+            DurationContent(initialMinutes = remember { minutes }, onChange = { TimerEngine.setDuration(it * 60) })
         }
-
-        // Sound (chime and volume) and the settings are full pages, drawn over the timer. They close only
-        // with Done or back, so scrolling them can never dismiss them.
         FullPage(
             visible = sheet == Sheet.SOUND, onDone = { sheet = null },
             extraButton = {
@@ -483,6 +522,8 @@ private fun CountdownText(
 private fun CountdownRing(
     fraction: Float,
     modifier: Modifier = Modifier,
+    /** How solidly the picture is drawn, read only when drawing. */
+    alpha: () -> Float = { 1f },
     style: String = RING_PLAIN,
     running: Boolean = false,
     onClickLabel: String? = null,
@@ -490,12 +531,14 @@ private fun CountdownRing(
     content: @Composable () -> Unit,
 ) {
     val p = LocalPalette.current
+    val fadePaint = remember { Paint() }
     val beadTiles = ImageBitmap.imageResource(R.drawable.beads)
     val incenseStrip = ImageBitmap.imageResource(R.drawable.incense)
     val incenseDish = ImageBitmap.imageResource(R.drawable.incense_dish)
     val candle = ImageBitmap.imageResource(R.drawable.candle)
     val candleDish = ImageBitmap.imageResource(R.drawable.candle_dish)
     val candleFlame = ImageBitmap.imageResource(R.drawable.candle_flame)
+    val moon = ImageBitmap.imageResource(R.drawable.moon)
     // Smoke thins away when the timer stops and gathers again when it starts. Its clock only
     // runs while there is smoke to move, and only redraws the ring.
     val smoke by animateFloatAsState(
@@ -520,43 +563,41 @@ private fun CountdownRing(
             // Drawn before the clip: the painted ring is larger than the tap target.
             .drawBehind {
                 val f = fraction.coerceIn(0f, 1f)
+                // While fading, the whole picture is drawn into a layer and that is faded, so
+                // its overlapping parts don't show through one another. The layer is wider
+                // than the box, as some of the pictures are.
+                val solid = alpha()
+                val canvas = drawContext.canvas
+                if (solid < 1f) {
+                    fadePaint.alpha = solid
+                    canvas.saveLayer(Rect(-size.width, -size.height, size.width * 2, size.height * 2), fadePaint)
+                }
                 when (style) {
-                    RING_ENSO -> {
-                        with(EnsoStroke) { drawEnso(f, ink = p.fg, track = p.btnBg) }
-                        return@drawBehind
+                    RING_ENSO -> with(EnsoStroke) { drawEnso(f, ink = p.fg, track = p.btnBg) }
+                    RING_INCENSE -> with(Incense) {
+                        drawIncense(incenseStrip, incenseDish, f, smokeTime.floatValue, smoke, ink = p.fg, paper = p.bg)
                     }
-                    RING_INCENSE -> {
-                        with(Incense) {
-                            drawIncense(incenseStrip, incenseDish, f, smokeTime.floatValue, smoke, ink = p.fg, paper = p.bg)
+                    RING_BEADS -> with(Beads) { drawBeads(beadTiles, f, ink = p.wood, track = p.btnBg) }
+                    RING_CANDLE -> with(Candle) {
+                        drawCandle(candle, candleDish, candleFlame, f, smokeTime.floatValue, smoke, ink = p.fg, paper = p.bg)
+                    }
+                    RING_LABYRINTH -> with(Labyrinth) { drawLabyrinth(f, ink = p.fg, track = p.btnHover) }
+                    RING_MOON -> with(Moon) { drawMoon(moon, f, lit = p.moon, glow = p.moonGlow, ink = p.fg, paper = p.bg) }
+                    else -> {
+                        val stroke = 14.dp.toPx()
+                        val inset = Offset(stroke / 2, stroke / 2)
+                        val arcSize = Size(size.width - stroke, size.height - stroke)
+                        drawArc(p.btnBg, 0f, 360f, useCenter = false, topLeft = inset, size = arcSize, style = Stroke(stroke))
+                        if (f > 0f) {
+                            drawArc(
+                                p.fg, startAngle = -90f, sweepAngle = 360f * f,
+                                useCenter = false, topLeft = inset, size = arcSize,
+                                style = Stroke(stroke, cap = StrokeCap.Round),
+                            )
                         }
-                        return@drawBehind
-                    }
-                    RING_BEADS -> {
-                        with(Beads) { drawBeads(beadTiles, f, ink = p.fg, track = p.btnBg) }
-                        return@drawBehind
-                    }
-                    RING_CANDLE -> {
-                        with(Candle) {
-                            drawCandle(candle, candleDish, candleFlame, f, smokeTime.floatValue, smoke, ink = p.fg, paper = p.bg)
-                        }
-                        return@drawBehind
-                    }
-                    RING_LABYRINTH -> {
-                        with(Labyrinth) { drawLabyrinth(f, ink = p.fg, track = p.btnHover) }
-                        return@drawBehind
                     }
                 }
-                val stroke = 14.dp.toPx()
-                val inset = Offset(stroke / 2, stroke / 2)
-                val arcSize = Size(size.width - stroke, size.height - stroke)
-                drawArc(p.btnBg, 0f, 360f, useCenter = false, topLeft = inset, size = arcSize, style = Stroke(stroke))
-                if (f > 0f) {
-                    drawArc(
-                        p.fg, startAngle = -90f, sweepAngle = 360f * f,
-                        useCenter = false, topLeft = inset, size = arcSize,
-                        style = Stroke(stroke, cap = StrokeCap.Round),
-                    )
-                }
+                if (solid < 1f) canvas.restore()
             }
             // The incense scene fills the square; its time is shown above it instead.
             .clip(if (style == RING_INCENSE || style == RING_CANDLE) RoundedCornerShape(20.dp) else CircleShape)
@@ -613,7 +654,7 @@ private fun OptionsContent() {
     ) {
         Text("Style", color = LocalPalette.current.fg, fontSize = 16.sp)
         Segments(
-            labels = listOf("Plain", "Ensō", "Beads", "Incense", "Labyrinth", "Candle"),
+            labels = listOf("Plain", "Ensō", "Beads", "Incense", "Labyrinth", "Candle", "Moon"),
             perRow = 3,
             selected = RING_STYLES.indexOf(ringStyle),
             onSelect = { TimerEngine.setRingStyle(RING_STYLES[it]) },
@@ -689,7 +730,7 @@ private enum class SoundTab(val label: String) { CHIME("Chime"), VOLUME("Volume"
 private fun Segments(labels: List<String>, selected: Int, perRow: Int = labels.size, onSelect: (Int) -> Unit) {
     val p = LocalPalette.current
     Column(
-        Modifier.fillMaxWidth().border(1.dp, p.btnHover, ControlShape).padding(4.dp),
+        Modifier.fillMaxWidth().border(1.dp, p.border, ControlShape).padding(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         labels.indices.chunked(perRow).forEach { row ->
@@ -817,7 +858,7 @@ private fun SwitchRow(label: String, checked: Boolean, caption: String? = null, 
             colors = SwitchDefaults.colors(
                 checkedThumbColor = p.bgDim, checkedTrackColor = p.fg,
                 uncheckedThumbColor = p.fg, uncheckedTrackColor = p.btnBg,
-                uncheckedBorderColor = p.btnHover,
+                uncheckedBorderColor = p.border,
             ),
         )
     }
@@ -838,7 +879,7 @@ private fun AppButton(
             .alpha(if (enabled) 1f else 0.35f)
             .heightIn(min = 48.dp)
             .clip(ControlShape)
-            .border(1.dp, p.btnHover, ControlShape)
+            .border(1.dp, p.border, ControlShape)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
@@ -905,7 +946,7 @@ private fun ChimeList(selected: String) {
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .fillMaxWidth()
                         .height(1.dp)
-                        .background(p.btnHover),
+                        .background(p.border),
                 )
             }
             OptionRow(chime.label, selected = chime.id == selected) { TimerEngine.setChime(chime.id) }
@@ -917,7 +958,7 @@ private fun ChimeList(selected: String) {
 
 private val WheelItemHeight = 56.dp
 
-/** Keeps wheel over-scroll from dragging the bottom sheet that contains it. */
+/** Keeps wheel over-scroll from scrolling the page that contains it. */
 private val ConsumeLeftoverScroll = object : NestedScrollConnection {
     override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource) = available
     override suspend fun onPostFling(consumed: Velocity, available: Velocity) = available
@@ -925,18 +966,11 @@ private val ConsumeLeftoverScroll = object : NestedScrollConnection {
 
 /**
  * Scroll wheel for any whole number of minutes, with shortcut buttons for the usual lengths.
- * Changes apply as the wheel moves, so closing the sheet any way keeps what is shown.
+ * Changes apply as the wheel moves, so leaving the page any way keeps what is shown.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DurationSheet(
-    initialMinutes: Int,
-    restartsSession: Boolean,
-    onChange: (Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun DurationContent(initialMinutes: Int, onChange: (Int) -> Unit) {
     val p = LocalPalette.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
 
     // Item i is minute i+1. Two items of padding above and below let the ends reach the centre.
@@ -952,90 +986,67 @@ private fun DurationSheet(
         snapshotFlow { centred }.collect { onChange(it + 1) }
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = p.modalBg,
-        contentColor = p.fg,
-        dragHandle = { BottomSheetDefaults.DragHandle(color = p.btnHover) },
-    ) {
-        Column(
-            Modifier.padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Column(Modifier.padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Duration", color = p.fg, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                if (restartsSession) {
-                    Text(
-                        "Changing the duration restarts the session",
-                        Modifier.alpha(0.7f), color = p.fg, fontSize = 14.sp,
-                    )
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DURATION_PRESETS_MIN.forEach { preset ->
-                    val selected = preset == centred + 1
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .clip(ControlShape)
-                            .border(1.dp, if (selected) p.fg else p.btnHover, ControlShape)
-                            .clickable(role = Role.Button, onClickLabel = "$preset minutes") {
-                                scope.launch { listState.animateScrollToItem(preset - 1) }
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            "$preset", color = p.fg,
-                            fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
-            }
-
-            Box(Modifier.fillMaxWidth().height(WheelItemHeight * 5), contentAlignment = Alignment.Center) {
-                // Selection band
-                Box(Modifier.fillMaxWidth().height(WheelItemHeight).border(1.dp, p.btnHover, ControlShape))
-                LazyColumn(
-                    state = listState,
-                    flingBehavior = rememberSnapFlingBehavior(listState),
-                    contentPadding = PaddingValues(vertical = WheelItemHeight * 2),
-                    modifier = Modifier.fillMaxSize().nestedScroll(ConsumeLeftoverScroll),
-                ) {
-                    items(MAX_CUSTOM_MINUTES) { i ->
-                        val selected = i == centred
+    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        // The usual lengths, in two rows of large buttons.
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            DURATION_PRESETS_MIN.chunked(3).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { preset ->
+                        val selected = preset == centred + 1
                         Box(
                             Modifier
-                                .fillMaxWidth()
-                                .height(WheelItemHeight)
-                                .clickable(interactionSource = null, indication = null) {
-                                    scope.launch { listState.animateScrollToItem(i) }
+                                .weight(1f)
+                                .height(56.dp)
+                                .clip(ControlShape)
+                                .border(1.dp, if (selected) p.fg else p.border, ControlShape)
+                                .clickable(role = Role.Button, onClickLabel = "$preset minutes") {
+                                    scope.launch { listState.animateScrollToItem(preset - 1) }
                                 },
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                "${i + 1}",
-                                Modifier.alpha(if (selected) 1f else 0.4f),
-                                color = p.fg,
-                                fontSize = if (selected) 34.sp else 24.sp,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                "$preset", color = p.fg,
+                                fontSize = 18.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                             )
                         }
                     }
                 }
-                Text(
-                    "min", Modifier.offset(x = 72.dp).alpha(0.7f),
-                    color = p.fg, fontSize = 18.sp,
-                )
             }
+        }
 
-            AppButton(
-                "Done",
-                onClick = { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() } },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                fontSize = 18.sp,
+        Box(Modifier.fillMaxWidth().height(WheelItemHeight * 5), contentAlignment = Alignment.Center) {
+            // Selection band
+            Box(Modifier.fillMaxWidth().height(WheelItemHeight).border(1.dp, p.border, ControlShape))
+            LazyColumn(
+                state = listState,
+                flingBehavior = rememberSnapFlingBehavior(listState),
+                contentPadding = PaddingValues(vertical = WheelItemHeight * 2),
+                modifier = Modifier.fillMaxSize().nestedScroll(ConsumeLeftoverScroll),
+            ) {
+                items(MAX_CUSTOM_MINUTES) { i ->
+                    val selected = i == centred
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(WheelItemHeight)
+                            .clickable(interactionSource = null, indication = null) {
+                                scope.launch { listState.animateScrollToItem(i) }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "${i + 1}",
+                            Modifier.alpha(if (selected) 1f else 0.4f),
+                            color = p.fg,
+                            fontSize = if (selected) 34.sp else 24.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                        )
+                    }
+                }
+            }
+            Text(
+                "min", Modifier.offset(x = 72.dp).alpha(0.7f),
+                color = p.fg, fontSize = 18.sp,
             )
         }
     }
