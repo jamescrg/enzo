@@ -57,7 +57,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -87,10 +86,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -661,7 +656,7 @@ private fun KaleidoscopeBackdrop(fraction: Float, running: Boolean, ring: Rect, 
         with(Kaleidoscope) {
             drawKaleidoscope(
                 ring.center, ring.minDimension, spread(), fraction, time.floatValue,
-                colors, ink = p.fg, track = p.btnBg,
+                colors, ink = p.fg,
             )
         }
     }
@@ -708,15 +703,15 @@ private fun OptionsContent() {
         caption = "Fade the time out along with the controls",
         onChange = TimerEngine::setRingOnly,
     )
-    // Style: how the session's progress is drawn. There are too many to lay side by side, so
-    // they drop down from the one that is chosen.
-    Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, top = 12.dp, end = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    // Style: how the session's progress is drawn.
+    Column(
+        Modifier.padding(start = 16.dp, top = 12.dp, end = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Style", Modifier.weight(1f), color = LocalPalette.current.fg, fontSize = 16.sp)
-        Dropdown(
+        Text("Style", color = LocalPalette.current.fg, fontSize = 16.sp)
+        Segments(
             labels = listOf("Plain", "Ensō", "Beads", "Incense", "Labyrinth", "Candle", "Moon", "Kaleidoscope"),
+            perRow = 3,
             selected = RING_STYLES.indexOf(ringStyle),
             onSelect = { TimerEngine.setRingStyle(RING_STYLES[it]) },
         )
@@ -784,8 +779,9 @@ private fun VolumeContent() {
 private enum class SoundTab(val label: String) { CHIME("Chime"), VOLUME("Volume") }
 
 /**
- * A segmented choice: tabs on the Sound page, the theme choice in Settings. With more choices
- * than fit side by side, they wrap onto further rows of [perRow].
+ * A segmented choice: tabs on the Sound page, the ring and theme choices in Settings. With
+ * more choices than fit side by side, they wrap onto further rows of [perRow]; in a short last
+ * row, the last choice takes the room that is left over.
  */
 @Composable
 private fun Segments(labels: List<String>, selected: Int, perRow: Int = labels.size, onSelect: (Int) -> Unit) {
@@ -800,7 +796,7 @@ private fun Segments(labels: List<String>, selected: Int, perRow: Int = labels.s
                     val isSelected = i == selected
                     Box(
                         Modifier
-                            .weight(1f)
+                            .weight(if (i == row.last()) 1f + perRow - row.size else 1f)
                             .height(44.dp)
                             .clip(RoundedCornerShape(16.dp))
                             .then(if (isSelected) Modifier.border(1.dp, p.fg, RoundedCornerShape(16.dp)) else Modifier)
@@ -813,8 +809,6 @@ private fun Segments(labels: List<String>, selected: Int, perRow: Int = labels.s
                         )
                     }
                 }
-                // A short last row keeps its cells the same width as the rows above.
-                repeat(perRow - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
@@ -968,44 +962,6 @@ private fun ValueRow(label: String, value: String, onClick: () -> Unit) {
     ) {
         Text(label, Modifier.weight(1f), color = p.fg, fontSize = 16.sp)
         Text(value, Modifier.alpha(0.7f), color = p.fg, fontSize = 16.sp, maxLines = 1)
-    }
-}
-
-/** A choice among many: the chosen one in a box, which opens a list of them all when touched. */
-@Composable
-private fun Dropdown(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
-    val p = LocalPalette.current
-    var open by remember { mutableStateOf(false) }
-    Box {
-        Row(
-            Modifier
-                .width(200.dp)
-                .height(48.dp)
-                .clip(ControlShape)
-                .border(1.dp, p.border, ControlShape)
-                .clickable(role = Role.DropdownList, onClickLabel = "Choose") { open = true }
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(labels[selected.coerceIn(labels.indices)], Modifier.weight(1f), color = p.fg, fontSize = 16.sp, maxLines = 1)
-            Text("▾", Modifier.alpha(0.7f), color = p.fg, fontSize = 16.sp)
-        }
-        DropdownMenu(
-            expanded = open, onDismissRequest = { open = false },
-            modifier = Modifier.width(200.dp),
-            containerColor = p.modalBg, shape = ControlShape, border = BorderStroke(1.dp, p.modalBorder),
-        ) {
-            labels.forEachIndexed { i, label ->
-                DropdownMenuItem(
-                    text = { Text(label, Modifier.alpha(if (i == selected) 1f else 0.7f), color = p.fg, fontSize = 16.sp) },
-                    onClick = {
-                        open = false
-                        onSelect(i)
-                    },
-                )
-            }
-        }
     }
 }
 

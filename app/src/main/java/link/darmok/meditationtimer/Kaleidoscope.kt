@@ -22,10 +22,10 @@ import kotlin.random.Random
 /**
  * The kaleidoscope: a session as a pattern drawing in to a point. A few pale shards drift and
  * turn, slowly, and mirrors set round the middle make of them a pattern with six sides that is
- * never twice the same. Before the session it sits in a ring, like the other pictures. When
+ * never twice the same. Before the session it sits where the other pictures do. When
  * the timer runs and the controls fade it moves to the middle of the screen and opens out to
  * fill it, and from then on it draws steadily in, the dark closing round it, until at the end it is a point and is gone.
- * Whenever the controls come back it shows in its ring again, as much smaller as the session
+ * Whenever the controls come back it shows in its place again, as much smaller as the session
  * is further on.
  *
  * The shards only move while the timer runs.
@@ -71,14 +71,14 @@ object Kaleidoscope {
     private val window = Path()
 
     /**
-     * Draws the pattern with [fraction] of the session gone. At rest it fills a ring about
-     * [ring] in a box [box] wide, drawn in [track]; [spread] takes it from there (0) to the
-     * middle of everything there is to draw on, and filling it (1). The shards take their colours in turn from [colors];
+     * Draws the pattern with [fraction] of the session gone. At rest it fills a circle about
+     * [ring] in a box [box] wide; [spread] takes it from there (0) to the middle of everything
+     * there is to draw on, and filling it (1). The shards take their colours in turn from [colors];
      * [time] is in seconds and only moves them.
      */
     fun DrawScope.drawKaleidoscope(
         ring: Offset, box: Float, spread: Float, fraction: Float, time: Float,
-        colors: List<Color>, ink: Color, track: Color,
+        colors: List<Color>, ink: Color,
     ) {
         val f = fraction.coerceIn(0f, 1f)
         val rest = box * REACH
@@ -87,7 +87,6 @@ object Kaleidoscope {
         // Far enough to reach the furthest corner.
         val far = hypot(max(centre.x, size.width - centre.x), max(centre.y, size.height - centre.y))
         val reach = (rest + (far - rest) * wide) * (1 - f)
-        if (wide < 1f) drawCircle(track.copy(alpha = track.alpha * (1 - wide)), rest, ring, style = Stroke(1.5.dp.toPx()))
         if (reach < 0.5f) return
         val open = reach
 
