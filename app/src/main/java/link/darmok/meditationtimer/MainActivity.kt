@@ -86,6 +86,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -238,14 +239,21 @@ fun TimerApp() {
         onDispose { view.keepScreenOn = false }
     }
 
-    // When a repeating timer goes straight into its next round, the finished picture fades away
-    // and the fresh one fades in, rather than one snapping to the other. A round has repeated
-    // when the deadline moves while the timer stays running.
+    // When a round ends, the timer goes straight into its next one if it repeats, and otherwise
+    // resets itself. Either way the finished picture fades away and the fresh one fades in,
+    // rather than one snapping to the other. A round has repeated when the deadline moves while
+    // the timer stays running, and has ended for good when a running timer goes idle (only a
+    // paused one can be reset by hand).
     val lastSeen = remember { arrayOf(timer) }
     val repeatedAt = remember(timer.status, timer.endAt) {
         val before = lastSeen[0]
         lastSeen[0] = timer
-        if (before.status == Status.RUNNING && running && before.endAt != timer.endAt) timer.endAt else null
+        when {
+            before.status != Status.RUNNING -> null
+            running && before.endAt != timer.endAt -> timer.endAt
+            idle -> before.endAt
+            else -> null
+        }
     }
     val ringAlpha = remember { Animatable(1f) }
     var showFinished by remember(repeatedAt) { mutableStateOf(repeatedAt != null) }
@@ -339,7 +347,6 @@ fun TimerApp() {
             // The kaleidoscope lies behind everything, so that it can fill the screen.
             if (ringStyle == RING_KALEIDOSCOPE) {
                 KaleidoscopeBackdrop(
-                    fraction = if (showFinished) 1f else 1f - timer.remainingAt(now) / (timer.durationSec * 1000f),
                     running = running,
                     ring = ringBounds,
                     spread = { 1f - controlsAlpha },
@@ -628,17 +635,18 @@ private fun CountdownRing(
 }
 
 /**
- * The kaleidoscope, behind the whole screen and centred on the [ring], with [fraction] of the
- * session gone. [spread] takes it from sitting in the ring (0) to filling the screen (1), and
+ * The kaleidoscope, behind the whole screen. It does not show how far the session has come.
+ * [spread] takes it from a circle where the [ring] is (0) to covering the screen (1), and
  * [alpha] is how solidly it is drawn; both are read only when drawing. Its shards drift while
  * the timer is [running], and slowly enough that half the screen's pictures are plenty.
  */
 @Composable
-private fun KaleidoscopeBackdrop(fraction: Float, running: Boolean, ring: Rect, spread: () -> Float, alpha: () -> Float) {
+private fun KaleidoscopeBackdrop(running: Boolean, ring: Rect, spread: () -> Float, alpha: () -> Float) {
     val p = LocalPalette.current
     val colors = remember(p) { listOf(p.fg, p.wood, p.moonGlow) }
+    val wedge = rememberGraphicsLayer()
     val time = remember { mutableFloatStateOf(0f) }
-    if (running && fraction < 1f) {
+    if (running) {
         LaunchedEffect(Unit) {
             var shown = withFrameNanos { it }
             while (true) {
@@ -655,8 +663,8 @@ private fun KaleidoscopeBackdrop(fraction: Float, running: Boolean, ring: Rect, 
         if (ring.isEmpty) return@Canvas
         with(Kaleidoscope) {
             drawKaleidoscope(
-                ring.center, ring.minDimension, spread(), fraction, time.floatValue,
-                colors, ink = p.fg,
+                wedge, ring.center, ring.minDimension, spread(), time.floatValue,
+                colors, ink = p.fg, paper = p.bg,
             )
         }
     }

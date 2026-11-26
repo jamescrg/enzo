@@ -42,12 +42,12 @@ data class TimerState(
 
     /**
      * Returns `this` (same instance) if the timer has not finished by [now]; otherwise the
-     * post-completion state: restarted if repeating, else idle showing 00:00.
+     * post-completion state: restarted if repeating, else reset, idle and ready to start again.
      */
     fun advanced(now: Long): TimerState = when {
         status != Status.RUNNING || now < endAt -> this
         repeat -> copy(endAt = now + durationMs)
-        else -> copy(status = Status.IDLE, remainingMs = 0)
+        else -> reset()
     }
 }
 

@@ -28,10 +28,10 @@ class TimerStateTest {
     }
 
     @Test
-    fun completionGoesIdleAtZeroThenRestartsFromFull() {
+    fun completionResetsReadyToStartAgain() {
         val done = fiveMin.started(0).advanced(300_000)
         assertEquals(Status.IDLE, done.status)
-        assertEquals(0, done.remainingAt(300_000))
+        assertEquals(300_000, done.remainingAt(300_000))
         assertEquals(300_000, done.started(400_000).remainingAt(400_000))
     }
 
