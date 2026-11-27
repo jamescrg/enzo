@@ -574,6 +574,41 @@ button:focus-visible,
     pointer-events: none;
 }
 
+/* ── Larger screens ───────────────────────────────────────────── */
+
+/* On a tablet or a desktop the app keeps a phone's proportions: a narrow column of a
+   phone's height in the middle of the window, for the timer and for the pages alike. */
+@media (min-width: 700px) and (min-height: 600px) {
+    :root {
+        --column: 400px;
+        --tall: 780px;
+    }
+
+    body {
+        display: flex;
+        align-items: center;
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+
+    #screen {
+        width: 100%;
+        max-width: var(--column);
+        min-height: min(100vh, var(--tall));
+        min-height: min(100dvh, var(--tall));
+    }
+
+    .page {
+        padding-top: max(24px, calc((100vh - var(--tall)) / 2 + 24px));
+        padding-bottom: max(24px, calc((100vh - var(--tall)) / 2 + 24px));
+    }
+
+    /* The column less the timer's side padding, so the pages line up with it. */
+    .page > * {
+        max-width: calc(var(--column) - 32px);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .page,
     .page.open {
