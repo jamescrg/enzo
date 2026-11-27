@@ -735,13 +735,25 @@ function drawMoon(ctx, box, f, p, dpr) {
 }
 
 // ── Kaleidoscope ───────────────────────────────────────────────────
-// A session as a pattern drawing in to a point. A few pale shards drift and turn, slowly, and
-// mirrors set round the middle make of them a pattern with six sides that is never twice the
-// same. Before the session it sits where the other pictures do. When the timer runs and the
-// controls fade it moves to the middle of the screen and opens out to fill it, and from then
-// on it draws steadily in, until at the end it is a point and is gone.
+// Not a measure of the session, only something to rest the eyes on while it goes. Pale shards
+// of cut glass, triangles, squares and pentagons, drift and turn, slowly, and mirrors set
+// round the middle make of them a pattern with six sides that is never twice the same.
+//
+// Before the session it shows in a circle where the other pictures are. When the timer runs
+// and the controls fade, the circle moves to the middle of the screen and widens until the
+// pattern covers it all. Nothing is made bigger: the pattern goes on outwards as finely as it
+// began, and the circle only uncovers more of it.
 
-const KALEIDOSCOPE = { reach: 0.48, folds: 6, turn: 300 };
+const KALEIDOSCOPE = {
+    reach: 0.48,        // the circle's radius at rest, as a part of its box
+    folds: 6,           // how many times the mirrors repeat the pattern; each repeat is itself mirrored
+    turn: 300,          // the whole pattern turns once in this many seconds
+    atRest: 8,          // how many shards lie within the circle at rest (as thickly further out)
+    most: 1500,         // the most shards there can be (the Android app stops at 130, enough for a phone)
+    wander: 0.3,        // how far a shard wanders in and out from its place, in circles at rest
+    seam: 0.003,        // the wedge is drawn this much wider than it is, so no gap shows between copies
+    margin: 8,          // room round the edge of the picture of the wedge
+};
 
 /** Kotlin's Random(seed), so the shards are the very ones the Android app draws. */
 function kotlinRandom(seed) {
@@ -773,84 +785,139 @@ function kotlinRandom(seed) {
     };
 }
 
-// One shard: how many sides it has and how big it is beside the window, the slow waves (rate
-// and starting point) that carry it in and out, round, and about itself, and how solid it is.
-const SHARDS = (() => {
+// One shard: how many sides it has, how big it is and how far out its place is (both in
+// circles at rest), the slow waves (rate and starting point) that carry it in and out, round,
+// and about itself, and how solid it is.
+// They are made as they are needed, the first of them the very ones the Android app has: a
+// wide window uncovers more of the pattern than a phone does.
+const SHARDS = [];
+const nextShard = (() => {
+    const K = KALEIDOSCOPE;
     const r = kotlinRandom(11);
     const rate = (slow, quick) => {
         const period = slow + (quick - slow) * r.nextFloat();
         return TAU / period * (r.nextBoolean() ? 1 : -1);
     };
     const from = () => TAU * r.nextFloat();
-    return Array.from({ length: 8 }, () => ({
-        sides: 3 + r.nextInt(3), size: 0.18 + 0.22 * r.nextFloat(),
-        outRate: rate(120, 60), outFrom: from(),
-        roundRate: rate(150, 80), roundFrom: from(),
-        spinRate: rate(200, 90), spinFrom: from(),
-        solid: 0.09 + 0.08 * r.nextFloat(),
-    }));
+    return (i) => {
+        // Each takes its turn further out, so that they lie evenly over the whole pattern;
+        // those further out go round more slowly, to cover the same ground.
+        const place = Math.sqrt((i + r.nextFloat()) / K.atRest);
+        const sides = 3 + r.nextInt(3);
+        const size = 0.18 + 0.22 * r.nextFloat();
+        const outRate = rate(120, 60), outFrom = from();
+        const roundRate = rate(150, 80) / Math.max(1, place), roundFrom = from();
+        const spinRate = rate(200, 90), spinFrom = from();
+        const solid = 0.09 + 0.08 * r.nextFloat();
+        return { sides, size, place, outRate, outFrom, roundRate, roundFrom, spinRate, spinFrom, solid };
+    };
 })();
 
+/** The first `count` shards. */
+function shards(count) {
+    while (SHARDS.length < count) SHARDS.push(nextShard(SHARDS.length));
+    return count;
+}
+
 /**
- * Draws the pattern on a canvas `width` by `height`, with `fraction` of the session gone. At
- * rest it fills a circle about (ringX, ringY) in a box `box` wide; `spread` takes it from
- * there (0) to the middle of the canvas, and filling it (1). `time` is in seconds and only
- * moves the shards.
+ * Draws the pattern on a canvas `width` by `height`. At rest it shows in a circle about
+ * (ringX, ringY) in a box `box` wide; `spread` takes it from there (0) to the middle of the
+ * canvas, and covering it (1). `time` is in seconds and only moves the shards.
+ *
+ * Every shard is seen twelve times over, but only the wedge between two mirrors is drawn
+ * shard by shard, on a layer of its own; the rest is that picture, turned and turned over, as
+ * it is in a kaleidoscope.
  */
-export function drawKaleidoscope(ctx, width, height, ringX, ringY, box, spread, fraction, time, p) {
+export function drawKaleidoscope(ctx, width, height, ringX, ringY, box, spread, time, p, dpr) {
     const K = KALEIDOSCOPE;
-    const f = clamp(fraction, 0, 1);
     const rest = box * K.reach;
     const wide = clamp(spread, 0, 1);
     const cx = ringX + (width / 2 - ringX) * wide;
     const cy = ringY + (height / 2 - ringY) * wide;
-    // Far enough to reach the furthest corner.
-    const far = Math.hypot(Math.max(cx, width - cx), Math.max(cy, height - cy));
-    const reach = (rest + (far - rest) * wide) * (1 - f);
-    if (reach < 0.5) return;
+    // Far enough to reach the furthest corner, from here and from wherever else it may be.
+    const farFrom = (x, y) => Math.hypot(Math.max(x, width - x), Math.max(y, height - y));
+    const open = rest + (farFrom(cx, cy) - rest) * wide;
+    const most = Math.max(farFrom(ringX, ringY), farFrom(width / 2, height / 2));
+    const half = Math.PI / K.folds;     // the wedge between two mirrors: half of one repeat
+    const low = -K.seam, high = half + K.seam;
+    const M = K.margin;
     const colors = [p.fg, p.wood, p.moonGlow];
+
+    const wedgeWidth = Math.ceil(most + 2 * M), wedgeHeight = Math.ceil(most * Math.sin(high) + 2 * M);
+    const wedge = layer('kaleidoscope', wedgeWidth, wedgeHeight, dpr);
+    wedge.fillStyle = css(p.bg);
+    wedge.fillRect(0, 0, wedgeWidth, wedgeHeight);
+    // As many shards as it takes to reach the furthest corner, wandering and all.
+    const count = shards(clamp(Math.ceil(K.atRest * (most / rest + K.wander + 0.4) ** 2), 130, K.most));
+    for (let i = 0; i < count; i++) {
+        const shard = SHARDS[i];
+        const out = rest * Math.abs(shard.place + K.wander * Math.sin(time * shard.outRate + shard.outFrom));
+        // Near the middle the mirrors crowd its copies together, so it is smaller there.
+        const reach = rest * shard.size * (0.3 + 0.7 * Math.min(1, out / rest));
+        if (out - reach > open) continue;
+        const about = time * shard.roundRate + shard.roundFrom;
+        const spin = time * shard.spinRate + shard.spinFrom;
+        const n = shard.sides;
+        wedge.fillStyle = css(colors[i % colors.length], shard.solid);
+        for (let copy = 0; copy < 2 * K.folds; copy++) {
+            // The copies: turned to each of the repeats, as it is and turned over.
+            const side = copy % 2 === 0 ? 1 : -1;
+            const turned = (copy >> 1) * 2 * half;
+            let at = side * about + turned;
+            at -= TAU * Math.round(at / TAU);
+            // Only those that reach into the wedge are wanted.
+            const gap = at < low ? low - at : at > high ? at - high : 0;
+            const away = gap < Math.PI / 2 ? out * Math.sin(gap) : out;
+            if (away > reach + 1) continue;
+            const x = M + out * Math.cos(at);
+            const y = M + out * Math.sin(at);
+            wedge.beginPath();
+            for (let corner = 0; corner < n; corner++) {
+                const a = side * (spin + TAU * corner / n) + turned;
+                const px = x + reach * Math.cos(a), py = y + reach * Math.sin(a);
+                if (corner === 0) wedge.moveTo(px, py); else wedge.lineTo(px, py);
+            }
+            wedge.closePath();
+            wedge.fill();
+        }
+    }
+
+    // The wedge as it lies on the screen, reaching past the circle.
+    const long = open * 1.1;
+    const sector = new Path2D();
+    sector.moveTo(0, 0);
+    sector.lineTo(long * Math.cos(low), long * Math.sin(low));
+    sector.lineTo(long * Math.cos(high), long * Math.sin(high));
+    sector.closePath();
+    const lay = () => {
+        ctx.save();
+        ctx.clip(sector);
+        ctx.drawImage(wedge.canvas, -M, -M, wedge.canvas.width / dpr, wedge.canvas.height / dpr);
+        ctx.restore();
+    };
 
     ctx.save();
     ctx.beginPath();
-    ctx.arc(cx, cy, reach, 0, TAU);
+    ctx.arc(cx, cy, open, 0, TAU);
     ctx.clip();
     ctx.translate(cx, cy);
-    ctx.rotate(time * TAU / K.turn);
-    SHARDS.forEach((shard, i) => {
-        // Where the shard is: out from the middle (evenly over the window's area), round from
-        // the mirror, and turned about itself.
-        const out = reach * Math.sqrt(0.5 + 0.5 * Math.sin(time * shard.outRate + shard.outFrom));
-        const round = time * shard.roundRate + shard.roundFrom;
-        const spin = time * shard.spinRate + shard.spinFrom;
-        const x = out * Math.cos(round);
-        const y = out * Math.sin(round);
-        // Near the middle the mirrors crowd its copies together, so it is smaller there.
-        const reachOf = reach * shard.size * (0.3 + 0.7 * out / reach);
-        const shape = new Path2D();
-        for (let corner = 0; corner < shard.sides; corner++) {
-            const a = spin + TAU * corner / shard.sides;
-            const px = x + reachOf * Math.cos(a);
-            const py = y + reachOf * Math.sin(a);
-            if (corner === 0) shape.moveTo(px, py); else shape.lineTo(px, py);
-        }
-        shape.closePath();
-        ctx.fillStyle = css(colors[i % colors.length], shard.solid);
-        for (let fold = 0; fold < K.folds; fold++) {
-            ctx.save();
-            ctx.rotate(TAU * fold / K.folds);
-            ctx.fill(shape);
-            ctx.scale(1, -1);
-            ctx.fill(shape);
-            ctx.restore();
-        }
-    });
+    for (let fold = 0; fold < K.folds; fold++) {
+        ctx.save();
+        ctx.rotate(time * TAU / K.turn + TAU * fold / K.folds);
+        lay();
+        ctx.scale(1, -1);
+        lay();
+        ctx.restore();
+    }
     ctx.restore();
 
-    ctx.strokeStyle = css(p.fg, 0.3);
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(cx, cy, reach, 0, TAU);
-    ctx.stroke();
+    if (wide < 1) {
+        ctx.strokeStyle = css(p.fg, 0.3 * (1 - wide));
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, open, 0, TAU);
+        ctx.stroke();
+    }
 }
 
 // ── The picture for a style ────────────────────────────────────────

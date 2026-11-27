@@ -53,12 +53,12 @@ export function withDuration(t, seconds) {
 
 /**
  * Returns the same timer if it has not finished by `now`; otherwise the timer after
- * completion: restarted if repeating, else idle showing 00:00.
+ * completion: restarted if repeating, else reset, idle and ready to start again.
  */
 export function advanced(t, now) {
     if (t.status !== RUNNING || now < t.endAt) return t;
     if (t.repeat) return { ...t, endAt: now + t.durationSec * 1000 };
-    return { ...t, status: IDLE, remainingMs: 0 };
+    return reset(t);
 }
 
 export function formatTime(remainingMs) {

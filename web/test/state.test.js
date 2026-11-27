@@ -25,10 +25,10 @@ test('pause and resume keep the remaining time', () => {
     assert.equal(resumed.endAt, 700_000);
 });
 
-test('completion goes idle at zero, then restarts from full', () => {
+test('completion resets, ready to start again', () => {
     const done = advanced(started(fiveMin, 0), 300_000);
     assert.equal(done.status, IDLE);
-    assert.equal(remainingAt(done, 300_000), 0);
+    assert.equal(remainingAt(done, 300_000), 300_000);
     assert.equal(remainingAt(started(done, 400_000), 400_000), 300_000);
 });
 

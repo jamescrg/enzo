@@ -182,7 +182,7 @@ const timeIn = $('time-in');
 const timeAbove = $('time-above');
 const timeAboveSpans = [...timeAbove.querySelectorAll('span')];
 
-/** The picture shows a finished session, while it fades out before a repeat. */
+/** The picture shows a finished session, while it fades out at the end of a round. */
 let showFinished = false;
 let smokeTime = 0;
 let kaleidoscopeTime = 0;
@@ -248,15 +248,18 @@ function render(dt) {
     ctx.setTransform(dpr, 0, 0, dpr, box / 2 * dpr, box / 2 * dpr);
     drawStyle(ctx, style, box, f, smokeTime, smokeFade.value, palette, dpr);
 
-    // The kaleidoscope lies behind the whole screen, centred on the ring. Its shards drift
+    // The kaleidoscope lies behind the whole screen. It does not show how far the session has
+    // come. Its shards drift
     // while the timer runs, and slowly enough that some thirty pictures a second are plenty.
     const width = window.innerWidth, height = window.innerHeight;
-    fit(backdrop, width, height, dpr);
+    // Its soft shapes need no more than two pixels to the point, and are much to draw.
+    const backDpr = Math.min(dpr, 2);
+    fit(backdrop, width, height, backDpr);
     const back = backdrop.getContext('2d');
     back.setTransform(1, 0, 0, 1, 0, 0);
     back.clearRect(0, 0, backdrop.width, backdrop.height);
     if (style === 'kaleidoscope') {
-        if (running && f < 1) {
+        if (running) {
             kaleidoscopeWait += dt;
             if (kaleidoscopeWait >= 0.03) {
                 kaleidoscopeTime += kaleidoscopeWait;
@@ -264,16 +267,16 @@ function render(dt) {
             }
         }
         const ring = ringBox.getBoundingClientRect();
-        back.setTransform(dpr, 0, 0, dpr, 0, 0);
+        back.setTransform(backDpr, 0, 0, backDpr, 0, 0);
         drawKaleidoscope(
             back, width, height, ring.left + ring.width / 2, ring.top + ring.height / 2,
-            Math.min(ring.width, ring.height), 1 - controlsFade.value, f, kaleidoscopeTime, palette,
+            Math.min(ring.width, ring.height), 1 - controlsFade.value, kaleidoscopeTime, palette, backDpr,
         );
     }
 
     // Whether the picture is still moving: if so it is drawn again at once, and if it is only
     // counting down, ten times a second is enough.
-    return fades.some((x) => x.ms) || smokeFade.value > 0 || (style === 'kaleidoscope' && running && f < 1);
+    return fades.some((x) => x.ms) || smokeFade.value > 0 || (style === 'kaleidoscope' && running);
 }
 
 let frameRequest = 0;
@@ -585,10 +588,12 @@ function sync() {
 engine.subscribe((before) => {
     const t = state.timer, was = before.timer;
     if (t.status !== was.status || t.endAt !== was.endAt) {
-        // When a repeating timer goes straight into its next round, the finished picture fades
-        // away and the fresh one fades in, rather than one snapping to the other. A round has
-        // repeated when the deadline moves while the timer stays running.
-        if (was.status === RUNNING && t.status === RUNNING) {
+        // When a round ends, the timer goes straight into its next one if it repeats, and
+        // otherwise resets itself. Either way the finished picture fades away and the fresh one
+        // fades in, rather than one snapping to the other. A round has repeated when the
+        // deadline moves while the timer stays running, and has ended for good when a running
+        // timer goes idle (only a paused one can be reset by hand).
+        if (was.status === RUNNING && (t.status === RUNNING || t.status === IDLE)) {
             showFinished = true;
             fadeTo(pictureFade, 0, 1500, () => {
                 showFinished = false;
