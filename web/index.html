@@ -17,8 +17,9 @@
 <script>
 // The theme is set before anything is drawn, so a light page never flashes dark or the reverse.
 (function () {
-    var theme = 'system';
-    try { theme = JSON.parse(localStorage.getItem('settings') || '{}').theme || 'system'; } catch (e) {}
+    // Dark unless another has been chosen; "system" follows the phone.
+    var theme = 'dark';
+    try { theme = JSON.parse(localStorage.getItem('settings') || '{}').theme || 'dark'; } catch (e) {}
     if (theme !== 'light' && theme !== 'dark') {
         theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     }

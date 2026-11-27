@@ -8,6 +8,8 @@ import {
 } from './state.js';
 
 export const THEMES = ['system', 'light', 'dark'];
+/** Dark until another is chosen. (The Android app begins on "system".) */
+const DEFAULT_THEME = 'dark';
 
 /** How progress is drawn: a plain ring, a painted ensō, a round of beads, or one of the pictures. */
 export const RING_STYLES = ['plain', 'enso', 'beads', 'incense', 'labyrinth', 'candle', 'moon', 'kaleidoscope'];
@@ -18,7 +20,7 @@ const STORAGE_KEY = 'settings';
 
 export const state = {
     timer: newTimer(),
-    theme: 'system',
+    theme: DEFAULT_THEME,
     chimeVolume: 0.8,
     /** Keep the display awake while the timer runs. */
     keepScreenOn: false,
@@ -136,7 +138,7 @@ export function testChime() {
 }
 
 export function setTheme(theme) {
-    change({ theme: THEMES.includes(theme) ? theme : 'system' });
+    change({ theme: THEMES.includes(theme) ? theme : DEFAULT_THEME });
     save();
 }
 
@@ -216,7 +218,7 @@ function load() {
     const number = (value, fallback) => (Number.isFinite(value) ? value : fallback);
     const clamp = (x, lo, hi) => Math.min(Math.max(x, lo), hi);
 
-    state.theme = THEMES.includes(json.theme) ? json.theme : 'system';
+    state.theme = THEMES.includes(json.theme) ? json.theme : DEFAULT_THEME;
     state.chimeVolume = clamp(number(json.chimeVolume, 0.8), 0, 1);
     state.keepScreenOn = json.keepScreenOn === true;
     state.ringOnly = json.ringOnly === true;
