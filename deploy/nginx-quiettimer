@@ -1,0 +1,55 @@
+# quiettimer.app: Quiet, the meditation timer's web version. Static files from the
+# checkout at /home/james/tacet (web/), public, no login.
+# Installed by /home/james/tacet/deploy/setup-site.sh.
+server {
+    server_name quiettimer.app;
+
+    include /etc/nginx/snippets/security-headers.conf;
+
+    root /home/james/tacet/web;
+    index index.html;
+
+    # The page asks for about twenty files as it opens; the app then keeps its thirty one
+    # at a time, and asks again if refused.
+    limit_req zone=general burst=60 nodelay;
+
+    # Every file is revalidated (cheap 304s), so a new version shows without clearing anything.
+    location / {
+        expires -1;
+        try_files $uri $uri/ =404;
+    }
+
+    location = /manifest.webmanifest {
+        types { }
+        default_type application/manifest+json;
+        expires -1;
+    }
+
+    # In the checkout, but not part of the app.
+    location ~ ^/(test/|package\.json$|build-assets\.sh$|README\.md$) {
+        return 404;
+    }
+
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/quiettimer.app/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/quiettimer.app/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
+# www, and plain http, go to https://quiettimer.app.
+server {
+    server_name www.quiettimer.app;
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/quiettimer.app/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/quiettimer.app/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    return 301 https://quiettimer.app$request_uri;
+}
+
+server {
+    listen 80;
+    server_name quiettimer.app www.quiettimer.app;
+    return 301 https://quiettimer.app$request_uri;
+}

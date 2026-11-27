@@ -40,3 +40,11 @@ code. Any static web server over HTTPS will do (the offline copy needs HTTPS, or
 `sw.js` answers from its kept copy and fetches fresh files in the background, so a new version
 shows the second time the app is opened after it is put on the server. When the app gains a
 file, add it to the list in `sw.js`.
+
+## Where it runs
+
+- **https://quiettimer.app** — the prod droplet serves the checkout at `/home/james/tacet`
+  (`web/`) as static files. Set up once with `sudo deploy/setup-site.sh`, which gets the
+  certificate and installs `deploy/nginx-quiettimer`. To put out a new version:
+  `ssh prod git -C tacet pull`.
+- **https://darmok.link/quiet/** — the working copy on the dev server, behind its login.
