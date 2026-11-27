@@ -4,7 +4,7 @@
 // for next time. So a new version put on the server shows the second time the app is opened
 // after that, with nothing here to change: only add a file to FILES when the app gains one.
 
-const CACHE = 'tacet';
+const CACHE = 'quiet';
 const FILES = [
     './',
     'style.css',
@@ -44,7 +44,8 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-    event.waitUntil(self.clients.claim());
+    // The copy kept under the app's earlier name is dropped.
+    event.waitUntil(caches.delete('tacet').then(() => self.clients.claim()));
 });
 
 self.addEventListener('fetch', (event) => {

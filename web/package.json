@@ -1,5 +1,5 @@
 {
-    "name": "tacet-web",
+    "name": "quiet-web",
     "private": true,
     "type": "module",
     "scripts": {

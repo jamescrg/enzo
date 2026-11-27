@@ -231,7 +231,7 @@ export function showSession({ running, durationSec, elapsedSec, onPause, onPlay 
     const ms = navigator.mediaSession;
     try {
         ms.metadata = new MediaMetadata({
-            title: 'Tacet',
+            title: 'Quiet',
             artist: running ? 'Timer running' : 'Timer paused',
             artwork: [{ src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' }],
         });

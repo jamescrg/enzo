@@ -1,4 +1,4 @@
-# Tacet (web)
+# Quiet (web)
 
 The same timer as the Android app, as a web page that a phone can keep on its home screen and
 open with no connection. Plain HTML, CSS and JavaScript modules: no build step, no server-side

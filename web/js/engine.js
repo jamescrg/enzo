@@ -172,7 +172,7 @@ async function showFinished() {
     try {
         if (!('Notification' in window) || Notification.permission !== 'granted') return;
         const registration = await navigator.serviceWorker?.ready;
-        await registration?.showNotification('Tacet', {
+        await registration?.showNotification('Quiet', {
             body: 'Session complete', tag: FINISHED_TAG, silent: true, icon: 'icons/icon-192.png',
         });
     } catch {

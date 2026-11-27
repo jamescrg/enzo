@@ -523,7 +523,7 @@ const setThemeChoice = segments($('theme-choice'), ['System', 'Light', 'Dark'], 
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (iPhone && !standalone) {
         $('install-note').textContent =
-            'To keep Tacet on your home screen, open it in Safari, tap Share, then Add to Home Screen. ' +
+            'To keep Quiet on your home screen, open it in Safari, tap Share, then Add to Home Screen. ' +
             'It then opens like any app, with or without a connection.';
         $('install').hidden = false;
     }
@@ -531,7 +531,7 @@ const setThemeChoice = segments($('theme-choice'), ['System', 'Light', 'Dark'], 
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         offer = e;
-        $('install-note').textContent = 'Tacet can be kept on your home screen, where it opens like any app, with or without a connection.';
+        $('install-note').textContent = 'Quiet can be kept on your home screen, where it opens like any app, with or without a connection.';
         $('install-button').hidden = false;
         $('install').hidden = false;
     });

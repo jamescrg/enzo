@@ -1,6 +1,6 @@
 {
-    "name": "Tacet",
-    "short_name": "Tacet",
+    "name": "Quiet",
+    "short_name": "Quiet",
     "description": "A meditation timer.",
     "start_url": "./",
     "scope": "./",
