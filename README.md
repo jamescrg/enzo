@@ -6,6 +6,8 @@ Everforest dark / Seoul256 light themes, persistent settings.
 
 A running timer is kept alive by a foreground service, so it chimes with the screen off.
 
+The same app as a web page, for phones without the Android app, is in [`web/`](web/README.md).
+
 ## Build and install
 
 Requires JDK 17 and the Android SDK (path in `local.properties`).

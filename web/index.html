@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<title>Tacet</title>
+<meta name="description" content="A meditation timer.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2D353B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tacet">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials">
+<link rel="icon" href="icons/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+<script>
+// The theme is set before anything is drawn, so a light page never flashes dark or the reverse.
+(function () {
+    var theme = 'system';
+    try { theme = JSON.parse(localStorage.getItem('settings') || '{}').theme || 'system'; } catch (e) {}
+    if (theme !== 'light' && theme !== 'dark') {
+        theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    document.documentElement.dataset.theme = theme;
+})();
+</script>
+<script type="module" src="js/app.js"></script>
+</head>
+<body>
+
+<!-- The kaleidoscope lies behind everything, so that it can fill the screen. -->
+<canvas id="backdrop" aria-hidden="true"></canvas>
+
+<!-- Toolbar at the top, countdown in the middle, controls at the bottom in thumb reach. -->
+<main id="screen">
+    <div class="top">
+        <button id="time-above" class="time-above" type="button" hidden>
+            <span class="rim" aria-hidden="true"></span><span class="digits"></span>
+        </button>
+        <button id="open-settings" class="icon-button fades" type="button" aria-label="Settings">
+            <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true">
+                <path fill="currentColor" d="M3,18h18v-2H3v2zM3,13h18v-2H3v2zM3,6v2h18V6H3z"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="ring-box">
+        <canvas id="picture" aria-hidden="true"></canvas>
+        <button id="ring" class="ring" type="button"><span id="time-in" class="countdown"></span></button>
+    </div>
+
+    <div class="controls fades">
+        <div class="card">
+            <button id="sound-row" class="row" type="button">
+                <span class="label">Sound</span><span id="sound-value" class="value"></span>
+            </button>
+        </div>
+        <div class="card">
+            <button id="repeat-row" class="row" type="button" role="switch">
+                <span class="label">Repeat</span><span class="switch" aria-hidden="true"></span>
+            </button>
+        </div>
+        <div class="buttons">
+            <button id="reset" class="button big" type="button">Set</button>
+            <button id="start" class="button big" type="button">Start</button>
+        </div>
+    </div>
+</main>
+
+<!-- Duration, sound and the settings are full pages, drawn over the timer. They close only
+     with Done or back, so scrolling them can never dismiss them. -->
+<section id="page-duration" class="page" aria-label="Duration" inert>
+    <header class="page-title">
+        <h1>Duration</h1>
+        <p id="duration-note" hidden>Changing the duration restarts the session</p>
+    </header>
+    <div class="page-body">
+        <div id="presets" class="presets"></div>
+        <div class="wheel-box">
+            <div class="wheel-band"></div>
+            <div id="wheel" class="wheel" tabindex="0" aria-label="Minutes"></div>
+            <span class="wheel-unit">min</span>
+        </div>
+    </div>
+    <footer class="page-buttons">
+        <button class="button done" type="button">Done</button>
+    </footer>
+</section>
+
+<section id="page-sound" class="page" aria-label="Sound" inert>
+    <header id="sound-tabs"></header>
+    <div class="page-body">
+        <div id="chime-list" class="options"></div>
+        <div id="volume" class="volume" hidden>
+            <div class="volume-labels"><span>Chime</span><span id="volume-value" class="value"></span></div>
+            <input id="volume-slider" type="range" min="0" max="100" step="1" aria-label="Chime volume">
+            <p class="caption">The phone's volume buttons set the level of everything; this sets the chime within it.</p>
+        </div>
+    </div>
+    <footer class="page-buttons">
+        <button id="listen" class="button" type="button">Listen</button>
+        <button class="button done" type="button">Done</button>
+    </footer>
+</section>
+
+<section id="page-settings" class="page" aria-label="Settings" inert>
+    <div class="page-body">
+        <button id="keep-screen-on" class="row" type="button" role="switch">
+            <span class="label">Keep screen on<small>Stay lit while the timer runs</small></span>
+            <span class="switch" aria-hidden="true"></span>
+        </button>
+        <button id="hide-countdown" class="row" type="button" role="switch">
+            <span class="label">Hide countdown<small>Fade the time out along with the controls</small></span>
+            <span class="switch" aria-hidden="true"></span>
+        </button>
+        <div class="group">
+            <h2>Style</h2>
+            <div id="style-choice"></div>
+        </div>
+        <div class="group">
+            <h2>Theme</h2>
+            <div id="theme-choice"></div>
+        </div>
+        <div id="install" class="group" hidden>
+            <h2>On this phone</h2>
+            <p id="install-note" class="caption"></p>
+            <button id="install-button" class="button" type="button" hidden>Add to home screen</button>
+        </div>
+    </div>
+    <footer class="page-buttons">
+        <button class="button done" type="button">Done</button>
+    </footer>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,583 @@
+/* Tacet. Sizes are the Android app's, a dp for a CSS pixel. */
+
+/* Everforest Dark */
+:root,
+:root[data-theme="dark"] {
+    --bg: #2D353B;
+    --bg-dim: #232A2E;
+    --fg: #D3C6AA;
+    --btn-bg: #3D484D;
+    --modal-bg: #343F44;
+    --border: #505C60;
+    color-scheme: dark;
+}
+
+/* The dark palette turned inside out: its ink is the paper, and its paper is the ink. */
+:root[data-theme="light"] {
+    --bg: #D3C6AA;
+    --bg-dim: #DDCFB1;
+    --fg: #2D353B;
+    --btn-bg: #C3B89F;
+    --modal-bg: #CCC0A5;
+    --border: #ADA38E;
+    color-scheme: light;
+}
+
+:root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --mono: ui-monospace, "SF Mono", "Roboto Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+
+    /* Set from the script as the controls and the time fade out and in. */
+    --controls-alpha: 1;
+    --time-alpha: 1;
+}
+
+html,
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.3;
+    overflow-x: hidden;
+    /* No pull-to-refresh: it would throw away a running session. */
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+button {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+button:focus-visible,
+.wheel:focus-visible {
+    outline: 2px solid var(--fg);
+    outline-offset: 2px;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+/* ── Screen ───────────────────────────────────────────────────── */
+
+#backdrop {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+#screen {
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 560px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0 auto;
+    padding:
+        calc(8px + var(--safe-top))
+        calc(16px + var(--safe-right))
+        calc(24px + var(--safe-bottom))
+        calc(16px + var(--safe-left));
+}
+
+.fades {
+    opacity: var(--controls-alpha);
+}
+
+/* The top row: settings on the right and, for the pictures that fill their square, the time
+   small on the left. */
+.top {
+    position: relative;
+    width: 100%;
+    height: 64px;
+    margin-top: 8px;
+    /* Above the picture, which is drawn beyond its box: smoke drifts behind the digits. */
+    z-index: 1;
+}
+
+.time-above {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 8px 15px;
+    border-radius: 20px;
+    font: bold 40px/1.2 var(--mono);
+    white-space: nowrap;
+}
+
+.time-above.long {
+    font-size: 32px;
+}
+
+.time-above span {
+    opacity: var(--time-alpha);
+}
+
+.time-above .digits {
+    position: relative;
+}
+
+/* A rim of background colour around each digit keeps the smoke from touching their edges. */
+.time-above .rim {
+    position: absolute;
+    color: var(--bg);
+    -webkit-text-stroke: 5px var(--bg);
+}
+
+.icon-button {
+    position: absolute;
+    right: 8px;
+    top: 0;
+    display: grid;
+    place-items: center;
+    width: 64px;      /* generous touch target around a small icon */
+    height: 64px;
+    border-radius: 50%;
+}
+
+.icon-button svg {
+    opacity: 0.8;
+}
+
+.ring-box {
+    position: relative;
+    width: 80%;
+    max-width: 320px;
+    aspect-ratio: 1;
+    margin: 24px 0;
+}
+
+/* The picture is drawn on a canvas twice the size of its box, since parts of some pictures
+   (smoke, a halo, the brush's edge) reach beyond it. */
+#picture {
+    position: absolute;
+    left: -50%;
+    top: -50%;
+    width: 200%;
+    height: 200%;
+    pointer-events: none;
+}
+
+.ring {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+}
+
+.ring.square {
+    border-radius: 20px;
+}
+
+.countdown {
+    font: bold 62px/1 var(--mono);
+    white-space: nowrap;
+    opacity: var(--time-alpha);
+}
+
+.controls {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+}
+
+.card {
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+}
+
+/* A full-width "label … value" or "label … switch" row; the whole row is the touch target. */
+.row {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    min-height: 56px;
+    padding: 8px 16px;
+    border-radius: 20px;
+}
+
+.row .label {
+    flex: 1;
+}
+
+.row small {
+    display: block;
+    font-size: 14px;
+    opacity: 0.65;
+}
+
+.value {
+    opacity: 0.7;
+    white-space: nowrap;
+}
+
+.switch {
+    position: relative;
+    box-sizing: border-box;
+    flex: none;
+    width: 52px;
+    height: 32px;
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    background: var(--btn-bg);
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.switch::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 14px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--fg);
+    transform: translate(-50%, -50%);
+    transition: left 0.15s, width 0.15s, height 0.15s, background-color 0.15s;
+}
+
+[aria-checked="true"] > .switch {
+    border-color: var(--fg);
+    background: var(--fg);
+}
+
+[aria-checked="true"] > .switch::after {
+    left: 34px;
+    width: 24px;
+    height: 24px;
+    background: var(--bg-dim);
+}
+
+.buttons,
+.page-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.button {
+    box-sizing: border-box;
+    flex: 1;
+    min-height: 48px;
+    padding: 8px 20px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.button.big {
+    min-height: 64px;
+    font-size: 18px;
+}
+
+/* A disabled button stays in place, muted, and ignores taps. */
+.button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+/* ── Pages ────────────────────────────────────────────────────── */
+
+/* A page covering the whole screen: content that scrolls if it needs to, and buttons fixed at
+   the bottom. A quiet arrival: it fades in while drifting up a short way, and leaves the same
+   way. */
+.page {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding:
+        calc(24px + var(--safe-top))
+        calc(16px + var(--safe-right))
+        calc(24px + var(--safe-bottom))
+        calc(16px + var(--safe-left));
+    background: var(--modal-bg);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(6.25%);
+    transition: opacity 0.2s, transform 0.2s, visibility 0s 0.2s;
+}
+
+.page.open {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition: opacity 0.25s, transform 0.25s;
+}
+
+.page > * {
+    width: 100%;
+    max-width: 560px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+.page-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.page-buttons .button {
+    min-height: 56px;
+    font-size: 18px;
+}
+
+.page-title {
+    padding-left: 16px;
+}
+
+.page-title h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.page-title p {
+    margin: 4px 0 0;
+    font-size: 14px;
+    opacity: 0.7;
+}
+
+.group {
+    padding: 12px 16px 0;
+}
+
+.group h2 {
+    margin: 0 0 12px;
+    font-size: 16px;
+    font-weight: normal;
+}
+
+.group .button {
+    width: 100%;
+    margin-top: 12px;
+}
+
+.caption {
+    margin: 0;
+    font-size: 14px;
+    opacity: 0.65;
+}
+
+/* A segmented choice: tabs on the Sound page, the style and theme choices in Settings. With
+   more choices than fit side by side, they wrap onto further rows; in a short last row, the
+   last choice takes the room that is left over. */
+.segments {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+}
+
+.segments > div {
+    display: flex;
+    gap: 4px;
+}
+
+.segment {
+    flex: var(--weight, 1) 1 0;
+    min-width: 0;
+    height: 44px;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.segment span {
+    opacity: 0.6;
+}
+
+.segment[aria-selected="true"] {
+    border-color: var(--fg);
+}
+
+.segment[aria-selected="true"] span {
+    opacity: 1;
+}
+
+/* ── Sound ────────────────────────────────────────────────────── */
+
+.options {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* A large single-choice row; the selected one is outlined in the ink colour. */
+.option {
+    box-sizing: border-box;
+    min-height: 52px;
+    padding: 0 16px;
+    border: 1px solid transparent;
+    border-radius: 20px;
+    font-size: 18px;
+}
+
+.option[aria-checked="true"] {
+    border-color: var(--fg);
+    font-weight: 600;
+}
+
+/* Thin rule between the sounds and the endings that make none. */
+.rule {
+    flex: none;
+    height: 1px;
+    margin: 8px 16px;
+    background: var(--border);
+}
+
+.volume {
+    padding: 8px 16px 16px;
+}
+
+.volume-labels {
+    display: flex;
+    justify-content: space-between;
+}
+
+.volume input {
+    width: 100%;
+    height: 44px;
+    margin: 0;
+    accent-color: var(--fg);
+}
+
+/* ── Duration ─────────────────────────────────────────────────── */
+
+/* The usual lengths, in two rows of large buttons. */
+.presets {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+    flex: none;
+}
+
+.preset {
+    height: 56px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 18px;
+    text-align: center;
+}
+
+.preset[aria-pressed="true"] {
+    border-color: var(--fg);
+    font-weight: 600;
+}
+
+/* Scroll wheel for any whole number of minutes: five rows show, and the middle one counts. */
+.wheel-box {
+    --row: 56px;
+    position: relative;
+    flex: none;
+    height: calc(var(--row) * 5);
+    margin-top: 20px;
+}
+
+.wheel-band {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(var(--row) * 2);
+    box-sizing: border-box;
+    height: var(--row);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+}
+
+.wheel {
+    position: absolute;
+    inset: 0;
+    overflow-y: scroll;
+    overscroll-behavior: contain;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+}
+
+.wheel::-webkit-scrollbar {
+    display: none;
+}
+
+/* Two rows of room above and below let the ends reach the middle. */
+.wheel::before,
+.wheel::after {
+    content: "";
+    display: block;
+    height: calc(var(--row) * 2);
+}
+
+.wheel div {
+    display: grid;
+    place-items: center;
+    height: var(--row);
+    font-size: 24px;
+    opacity: 0.4;
+    scroll-snap-align: center;
+}
+
+.wheel div.selected {
+    font-size: 34px;
+    font-weight: bold;
+    opacity: 1;
+}
+
+.wheel-unit {
+    position: absolute;
+    left: calc(50% + 72px);
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 18px;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .page,
+    .page.open {
+        transition: none;
+        transform: none;
+    }
+}
